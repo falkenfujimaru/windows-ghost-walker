@@ -257,14 +257,18 @@ Write-Host "===============================================================" -FG
 Write-Host "   MISSION COMPLETE. YOU ARE NOW A GHOST." -FG $G
 Write-Host "===============================================================" -FG $G
 
-$choice = Read-Host "[1] Reboot & Vanish (Recommended) [2] Self-Destruct Script Only"
+$choice = Read-Host "[1] Reboot & Vanish [2] Shutdown & Vanish [3] Self-Destruct & Exit"
 if ($choice -eq '1') {
     $scriptPath = $PSCommandPath
-    Start-Process cmd.exe -ArgumentList "/c timeout /t 5 && del `"$scriptPath`" && shutdown /r /t 0 /f" -WindowStyle Hidden
+    Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`" && shutdown /r /t 0 /f" -WindowStyle Hidden
+    exit
+} elseif ($choice -eq '2') {
+    $scriptPath = $PSCommandPath
+    Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`" && shutdown /s /t 0 /f" -WindowStyle Hidden
     exit
 } else {
     Start-Process explorer.exe
-    Remove-Item $PSCommandPath -Force
-    Read-Host "Press Enter to exit..."
+    # Self-destruct via CMD to ensure clean removal after exit
+    Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$PSCommandPath`"" -WindowStyle Hidden
     exit
 }
