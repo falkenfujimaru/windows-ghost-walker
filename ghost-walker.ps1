@@ -30,14 +30,34 @@ if (-not $isAdmin) {
 }
 
 # --- SDELETE VALIDATION ---
-$SDEL = Join-Path $PSScriptRoot (if ([Environment]::Is64BitOperatingSystem) { 'sdelete64.exe' } else { 'sdelete.exe' })
+$is64 = [Environment]::Is64BitOperatingSystem
+$sdelName = if ($is64) { 'sdelete64.exe' } else { 'sdelete.exe' }
+$SDEL = Join-Path $PSScriptRoot $sdelName
+
+if ([string]::IsNullOrWhiteSpace($SDEL)) {
+    Write-Host "[!] CRITICAL ERROR: Unable to determine SDelete path." -FG $R
+    exit
+}
+
 if (!(Test-Path $SDEL)) {
     Write-Host "[~] Summoning the Void Shredder (SDelete)..." -FG $C
     $zip = "$env:TEMP\s.zip"
-    Invoke-WebRequest -Uri 'https://download.sysinternals.com/files/SDelete.zip' -OutFile $zip -UseBasicParsing
-    Expand-Archive -Path $zip -DestinationPath $PSScriptRoot -Force
-    Remove-Item $zip -Force
+    try {
+        Invoke-WebRequest -Uri 'https://download.sysinternals.com/files/SDelete.zip' -OutFile $zip -UseBasicParsing
+        Expand-Archive -Path $zip -DestinationPath $PSScriptRoot -Force
+        Remove-Item $zip -Force
+    } catch {
+        Write-Host "[!] Failed to download SDelete. Please ensure internet connection." -FG $R
+        Write-Host "[!] Error: $_" -FG $R
+    }
 }
+
+if (!(Test-Path $SDEL)) {
+    Write-Host "[!] SDelete not found at $SDEL. Cannot proceed safely." -FG $R
+    Read-Host "Press Enter to exit..."
+    exit
+}
+
 & $SDEL -accepteula
 
 Show-Header
@@ -74,13 +94,15 @@ New-Item -ItemType Directory -Path $targetDir -Force
 for ($i=1; $i -le 3000; $i++) {
     New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID"
 }
-& $SDEL -p 1 -q "$targetDir\*.tmp"
+if (Test-Path $SDEL) {
+    & $SDEL -p 1 -q "$targetDir\*.tmp"
+}
 Remove-Item $targetDir -Recurse -Force
 
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
 Write-Host "[4/12] Vaporizing Active Witnesses & Personal Stash..." -FG $C
 $procs = "chrome","msedge","brave","firefox","opera","Discord","WhatsApp","Telegram","explorer"
-Stop-Process -Name $procs -Force
+Stop-Process -Name $procs -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
 # Get real folder paths (handling OneDrive/Redirection)
@@ -98,18 +120,23 @@ if ($music) { $folders += $music }
 
 foreach ($f in $folders) {
     if ($f -and (Test-Path $f)) {
+        # Safety: Don't wipe the entire UserProfile if path resolution fails
+        if ($f -eq $env:USERPROFILE) { continue }
+        
         Write-Host "[~] Shredding contents of: $f" -FG $Y
         # Use Get-ChildItem to safely pass paths to SDelete
         # SDelete wildcard expansion can be tricky from PS, so we feed files directly or use simple wildcard
         $target = Join-Path $f "*"
-        & $SDEL -p 3 -s -q $target
+        if (Test-Path $SDEL) {
+            & $SDEL -p 3 -s -q $target
+        }
     }
 }
 
 # --- MODULE 5: BROWSER & COMMS OBLIVION ---
 Write-Host "[5/12] Scorching Browser & Comms History..." -FG $C
 $appData = @("$env:LocalAppData\Google\Chrome\User Data", "$env:LocalAppData\Microsoft\Edge\User Data", "$env:AppData\Telegram Desktop")
-foreach ($path in $appData) { if (Test-Path $path) { & $SDEL -p 2 -s -q "$path\*" } }
+foreach ($path in $appData) { if (Test-Path $path) { if(Test-Path $SDEL) { & $SDEL -p 2 -s -q "$path\*" } } }
 
 # --- MODULE 6: TIMING GAP FILLER (THE NOISE) ---
 Write-Host "[6/12] Injecting Digital Noise (Timing Gap Filler)..." -FG $C
@@ -125,14 +152,18 @@ for ($i=1; $i -le 20; $i++) {
 Write-Host "[7/12] Wiping Shell Memory & RDP Tracks..." -FG $C
 Clear-History
 if (Test-Path "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt") {
-    & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+    if (Test-Path $SDEL) {
+        & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+    }
 }
 $rdpKeys = @("HKCU:\Software\Microsoft\Terminal Server Client\Servers", "HKCU:\Software\Microsoft\Terminal Server Client\Default")
 foreach ($k in $rdpKeys) { if (Test-Path $k) { Remove-Item $k -Recurse -Force } }
 
 # --- MODULE 8: FREE SPACE SANITIZATION ---
 Write-Host "[8/12] Unleashing the Void: Free Space Sanitization..." -FG $C
-& $SDEL -z $env:SystemDrive
+if (Test-Path $SDEL) {
+    & $SDEL -z $env:SystemDrive
+}
 
 # ===============================================================
 #  FINALIZATION
