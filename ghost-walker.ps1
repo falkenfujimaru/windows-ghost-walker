@@ -81,11 +81,35 @@ Add-Content -Path "$env:windir\System32\drivers\etc\hosts" -Value "`n0.0.0.0 oca
 
 # --- MODULE 2: STATE INCONSISTENCY (DEEP CLEAN) ---
 Write-Host "[2/12] Nuking Deep Artifacts (Shimcache/Amcache)..." -FG $C
+
+# Helper to safely remove registry keys
+function Safe-RegDelete {
+    param($Path)
+    if (Test-Path $Path) {
+        try {
+            # Try taking ownership and adding permissions before deleting (if needed)
+            $acl = Get-Acl $Path
+            $rule = New-Object System.Security.AccessControl.RegistryAccessRule ("Administrators","FullControl","Allow")
+            $acl.SetAccessRule($rule)
+            Set-Acl $Path $acl -ErrorAction SilentlyContinue
+            
+            Remove-Item -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Host "[!] Access Denied or Locked: $Path (Skipping)" -FG $R
+        }
+    }
+}
+
 # Shimcache & AppCompat
-Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppCompatFlags\Explorer" -Recurse -Force -ErrorAction SilentlyContinue
+Safe-RegDelete "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache"
+Safe-RegDelete "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppCompatFlags\Explorer"
+
 # BAM (Background Activity Moderator)
-Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\*" -Recurse -Force -ErrorAction SilentlyContinue
+# BAM is protected by System. We try, but suppress fatal errors.
+$bamPath = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings"
+if (Test-Path $bamPath) {
+    Get-ChildItem $bamPath | ForEach-Object { Safe-RegDelete $_.PSPath }
+}
 
 # --- MODULE 3: MFT BURIAL (THE BURIER) ---
 Write-Host "[3/12] Burying the Evidence: MFT Overwrite Sequence..." -FG $C
