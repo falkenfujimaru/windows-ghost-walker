@@ -45,28 +45,28 @@ echo [>] Booting the Void Engine... Time to vanish.
 
 :: 1. Force Close Apps (Executioner Mode)
 echo [>] Flatlining active witnesses (apps) to unlock data vaults...
-taskkill /F /IM chrome.exe /IM msedge.exe /IM brave.exe /IM firefox.exe /IM opera.exe /IM Discord.exe /IM DiscordCanary.exe /IM DiscordPTB.exe /IM WhatsApp.exe /IM Telegram.exe /IM explorer.exe /T >nul 2>&1
+taskkill /F /IM chrome.exe /IM msedge.exe /IM brave.exe /IM firefox.exe /IM opera.exe /IM Discord.exe /IM DiscordCanary.exe /IM DiscordPTB.exe /IM WhatsApp.exe /IM Telegram.exe /IM explorer.exe /T
 
 :: 2. Secure Delete Personal Folders
 echo [>] Zeroing out the personal vaults. No history, no mystery.
 if exist "%USERPROFILE%\Downloads\" (
   echo >>> Nuking Downloads... shredding every byte.
-  "%SDEL%" -p 3 -s -q "%USERPROFILE%\Downloads\*"
+  "%SDEL%" -p 3 -s "%USERPROFILE%\Downloads\*"
   echo >>> Downloads folder: VAPORIZED.
 )
 if exist "%USERPROFILE%\Documents\" (
   echo >>> Sanitizing Documents... leave no trace.
-  "%SDEL%" -p 3 -s -q "%USERPROFILE%\Documents\*"
+  "%SDEL%" -p 3 -s "%USERPROFILE%\Documents\*"
   echo >>> Documents folder: GHOSTED.
 )
 if exist "%USERPROFILE%\Pictures\" (
   echo >>> Obliterating Media archives... 
-  "%SDEL%" -p 3 -s -q "%USERPROFILE%\Pictures\*"
+  "%SDEL%" -p 3 -s "%USERPROFILE%\Pictures\*"
   echo >>> Pictures folder: PURGED.
 )
 if exist "%USERPROFILE%\Videos\" (
   echo >>> Cleaning Video tracks... going dark.
-  "%SDEL%" -p 3 -s -q "%USERPROFILE%\Videos\*"
+  "%SDEL%" -p 3 -s "%USERPROFILE%\Videos\*"
   echo >>> Videos folder: PURGED.
 )
 
@@ -111,77 +111,77 @@ if /I "!MODE_APP!"=="A" (
 
 if /I "!DO_CHROME!"=="Y" if exist "%LocalAppData%\Google\Chrome\User Data\" (
   echo >>> Chrome shadows: Vaporizing...
-  "%SDEL%" -p 3 -s -q "%LocalAppData%\Google\Chrome\User Data\*"
+  "%SDEL%" -p 3 -s "%LocalAppData%\Google\Chrome\User Data\*"
   echo >>> Chrome cache: VAPORIZED.
 )
 if /I "!DO_EDGE!"=="Y" if exist "%LocalAppData%\Microsoft\Edge\User Data\" (
   echo >>> Edge fingerprints: Shredding...
-  "%SDEL%" -p 3 -s -q "%LocalAppData%\Microsoft\Edge\User Data\*"
+  "%SDEL%" -p 3 -s "%LocalAppData%\Microsoft\Edge\User Data\*"
   echo >>> Edge cache: VAPORIZED.
 )
 if /I "!DO_BRAVE!"=="Y" if exist "%LocalAppData%\BraveSoftware\Brave-Browser\User Data\" (
   echo >>> Brave profiles: Obliterating...
-  "%SDEL%" -p 3 -s -q "%LocalAppData%\BraveSoftware\Brave-Browser\User Data\*"
+  "%SDEL%" -p 3 -s "%LocalAppData%\BraveSoftware\Brave-Browser\User Data\*"
   echo >>> Brave cache: VAPORIZED.
 )
 if /I "!DO_FIREFOX!"=="Y" if exist "%AppData%\Mozilla\Firefox\Profiles\" (
   echo >>> Firefox profiles: Erasing...
-  "%SDEL%" -p 3 -s -q "%AppData%\Mozilla\Firefox\Profiles\*"
+  "%SDEL%" -p 3 -s "%AppData%\Mozilla\Firefox\Profiles\*"
   echo >>> Firefox profiles: VAPORIZED.
 )
 if /I "!DO_FIREFOX!"=="Y" if exist "%LocalAppData%\Mozilla\Firefox\Profiles\" (
   echo >>> Firefox local profiles: Erasing...
-  "%SDEL%" -p 3 -s -q "%LocalAppData%\Mozilla\Firefox\Profiles\*"
+  "%SDEL%" -p 3 -s "%LocalAppData%\Mozilla\Firefox\Profiles\*"
   echo >>> Firefox local profiles: VAPORIZED.
 )
 if /I "!DO_FIREFOX!"=="Y" if exist "%AppData%\Mozilla\Firefox\Crash Reports\" (
   echo >>> Firefox crash reports: Erasing...
-  "%SDEL%" -p 3 -s -q "%AppData%\Mozilla\Firefox\Crash Reports\*"
+  "%SDEL%" -p 3 -s "%AppData%\Mozilla\Firefox\Crash Reports\*"
   echo >>> Firefox crash reports: VAPORIZED.
 )
 if /I "!DO_OPERA!"=="Y" if exist "%AppData%\Opera Software\Opera Stable\" (
   echo >>> Opera cache: Erasing...
-  "%SDEL%" -p 3 -s -q "%AppData%\Opera Software\Opera Stable\*"
+  "%SDEL%" -p 3 -s "%AppData%\Opera Software\Opera Stable\*"
   echo >>> Opera cache: VAPORIZED.
 )
 if /I "!DO_OPERA!"=="Y" if exist "%LocalAppData%\Opera Software\Opera Stable\" (
   echo >>> Opera local cache: Erasing...
-  "%SDEL%" -p 3 -s -q "%LocalAppData%\Opera Software\Opera Stable\*"
+  "%SDEL%" -p 3 -s "%LocalAppData%\Opera Software\Opera Stable\*"
   echo >>> Opera local cache: VAPORIZED.
 )
 if /I "!DO_DISCORD!"=="Y" if exist "%AppData%\discord\" (
   echo >>> Discord cache: Erasing...
-  "%SDEL%" -p 3 -s -q "%AppData%\discord\*"
+  "%SDEL%" -p 3 -s "%AppData%\discord\*"
   echo >>> Discord cache: VAPORIZED.
 )
 if /I "!DO_DISCORD!"=="Y" if exist "%AppData%\discordcanary\" (
   echo >>> Discord Canary cache: Erasing...
-  "%SDEL%" -p 3 -s -q "%AppData%\discordcanary\*"
+  "%SDEL%" -p 3 -s "%AppData%\discordcanary\*"
   echo >>> Discord Canary cache: VAPORIZED.
 )
 if /I "!DO_DISCORD!"=="Y" if exist "%AppData%\discordptb\" (
   echo >>> Discord PTB cache: Erasing...
-  "%SDEL%" -p 3 -s -q "%AppData%\discordptb\*"
+  "%SDEL%" -p 3 -s "%AppData%\discordptb\*"
   echo >>> Discord PTB cache: VAPORIZED.
 )
 if /I "!DO_DISCORD!"=="Y" if exist "%LocalAppData%\Discord\" (
   echo >>> Discord local cache: Erasing...
-  "%SDEL%" -p 3 -s -q "%LocalAppData%\Discord\*"
+  "%SDEL%" -p 3 -s "%LocalAppData%\Discord\*"
   echo >>> Discord local cache: VAPORIZED.
 )
 if /I "!DO_TELEGRAM!"=="Y" if exist "%AppData%\Telegram Desktop\" (
   echo >>> Telegram session: Deleted from reality.
-  "%SDEL%" -p 3 -s -q "%AppData%\Telegram Desktop\*"
+  "%SDEL%" -p 3 -s "%AppData%\Telegram Desktop\*"
   echo >>> Telegram session: VAPORIZED.
 )
 if /I "!DO_WHATSAPP!"=="Y" if exist "%LocalAppData%\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\" (
   echo >>> WhatsApp Desktop: Erasing...
-  "%SDEL%" -p 3 -s -q "%LocalAppData%\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\*"
+  "%SDEL%" -p 3 -s "%LocalAppData%\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\*"
   echo >>> WhatsApp Desktop: VAPORIZED.
 )
 if /I "!DO_WHATSAPP!"=="Y" if exist "%AppData%\WhatsApp\" (
   echo >>> WhatsApp Roaming: Erasing...
-  "%SDEL%" -p 3 -s -q "%AppData%\WhatsApp\*"
+  "%SDEL%" -p 3 -s "%AppData%\WhatsApp\*"
   echo >>> WhatsApp Roaming: VAPORIZED.
 )
 
@@ -204,64 +204,64 @@ reg query "HKCU\Software\Microsoft\Terminal Server Client\Servers" >nul 2>&1 && 
 reg query "HKCU\Software\Microsoft\Terminal Server Client\Default" >nul 2>&1 && (reg delete "HKCU\Software\Microsoft\Terminal Server Client\Default" /f & echo >>> RDP Default: DELETED)
 reg query "HKCU\Software\Microsoft\Terminal Server Client" /v UsernameHint >nul 2>&1 && (reg delete "HKCU\Software\Microsoft\Terminal Server Client" /v UsernameHint /f & echo >>> RDP Hints: DELETED)
 echo >>> RDP Registry MRU: Purging...
-reg delete "HKCU\Software\Microsoft\Terminal Server Client\Default" /va /f >nul 2>&1
-reg delete "HKCU\Software\Microsoft\Terminal Server Client\Servers" /f >nul 2>&1
-reg add "HKCU\Software\Microsoft\Terminal Server Client\Servers" /f >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Terminal Server Client\Default" /va /f
+reg delete "HKCU\Software\Microsoft\Terminal Server Client\Servers" /f
+reg add "HKCU\Software\Microsoft\Terminal Server Client\Servers" /f
 if exist "%USERPROFILE%\Documents\Default.rdp" (
   echo >>> RDP file (Documents\Default.rdp): Erasing...
-  attrib -s -h "%USERPROFILE%\Documents\Default.rdp" >nul 2>&1
-  "%SDEL%" -p 3 -q "%USERPROFILE%\Documents\Default.rdp"
+  attrib -s -h "%USERPROFILE%\Documents\Default.rdp"
+  "%SDEL%" -p 3 "%USERPROFILE%\Documents\Default.rdp"
   echo >>> RDP file (Documents\Default.rdp): VAPORIZED.
 )
 if exist "%USERPROFILE%\Default.rdp" (
   echo >>> RDP file (Default.rdp): Erasing...
-  attrib -s -h "%USERPROFILE%\Default.rdp" >nul 2>&1
-  "%SDEL%" -p 3 -q "%USERPROFILE%\Default.rdp"
+  attrib -s -h "%USERPROFILE%\Default.rdp"
+  "%SDEL%" -p 3 "%USERPROFILE%\Default.rdp"
   echo >>> RDP file (Default.rdp): VAPORIZED.
 )
 if exist "%LocalAppData%\Microsoft\Terminal Server Client\Cache\" (
   echo >>> RDP bitmap cache: Erasing...
-  "%SDEL%" -p 3 -s -q "%LocalAppData%\Microsoft\Terminal Server Client\Cache\*"
+  "%SDEL%" -p 3 -s "%LocalAppData%\Microsoft\Terminal Server Client\Cache\*"
   echo >>> RDP bitmap cache: VAPORIZED.
 )
 echo >>> Removing stored RDP credentials...
 for /f "tokens=2 delims=:" %%H in ('cmdkey /list ^| findstr /I "TERMSRV/"') do (
   set "TARGET=%%H"
   set "TARGET=!TARGET: =!"
-  if defined TARGET cmdkey /delete:!TARGET! >nul 2>&1 & echo >>> RDP credentials !TARGET!: DELETED.
+  if defined TARGET cmdkey /delete:!TARGET! & echo >>> RDP credentials !TARGET!: DELETED.
 )
 if exist "%AppData%\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms" (
-  "%SDEL%" -p 3 -q "%AppData%\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms"
+  "%SDEL%" -p 3 "%AppData%\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms"
 )
-reg add "HKCU\Software\Microsoft\Terminal Server Client\Default" /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Terminal Server Client\Default" /f
 
 :: 7. CLEAR POWERSHELL & COMMAND HISTORY
 echo [>] Shell Silence: Muting the command echoes.
 if exist "%AppData%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" (
-  "%SDEL%" -p 3 -q "%AppData%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+  "%SDEL%" -p 3 "%AppData%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
 )
-sethistory -c >nul 2>&1
+sethistory -c
 
 :: 8. CLEAN RECENT DOCUMENTS, JUMP LISTS, & THUMBNAILS
 echo [>] Shortcut Purge: Burning the Recent Files and Thumbnails.
 if exist "%AppData%\Microsoft\Windows\Recent\" (
   echo >>> Recent files: Erasing...
-  "%SDEL%" -p 3 -q "%AppData%\Microsoft\Windows\Recent\*"
+  "%SDEL%" -p 3 "%AppData%\Microsoft\Windows\Recent\*"
   echo >>> Recent files: VAPORIZED.
 )
 if exist "%AppData%\Microsoft\Windows\Recent\AutomaticDestinations\" (
   echo >>> JumpLists (AutomaticDestinations): Erasing...
-  "%SDEL%" -p 3 -q "%AppData%\Microsoft\Windows\Recent\AutomaticDestinations\*"
+  "%SDEL%" -p 3 "%AppData%\Microsoft\Windows\Recent\AutomaticDestinations\*"
   echo >>> JumpLists (AutomaticDestinations): VAPORIZED.
 )
 if exist "%AppData%\Microsoft\Windows\Recent\CustomDestinations\" (
   echo >>> JumpLists (CustomDestinations): Erasing...
-  "%SDEL%" -p 3 -q "%AppData%\Microsoft\Windows\Recent\CustomDestinations\*"
+  "%SDEL%" -p 3 "%AppData%\Microsoft\Windows\Recent\CustomDestinations\*"
   echo >>> JumpLists (CustomDestinations): VAPORIZED.
 )
 if exist "%LocalAppData%\Microsoft\Windows\Explorer\thumbcache_*.db" (
   echo >>> Thumbnail caches: Erasing...
-  "%SDEL%" -p 3 -q "%LocalAppData%\Microsoft\Windows\Explorer\thumbcache_*.db"
+  "%SDEL%" -p 3 "%LocalAppData%\Microsoft\Windows\Explorer\thumbcache_*.db"
   echo >>> Thumbnail caches: VAPORIZED.
 )
 
@@ -269,47 +269,47 @@ if exist "%LocalAppData%\Microsoft\Windows\Explorer\thumbcache_*.db" (
 echo [>] System Flush: Draining the Temp and Error reports.
 if exist "%temp%\" (
   echo >>> Temp folder: Erasing...
-  "%SDEL%" -p 1 -q "%temp%\*"
+  "%SDEL%" -p 1 "%temp%\*"
   echo >>> Temp folder: VAPORIZED.
 )
 if exist "%systemroot%\Temp\" (
   echo >>> Windows Temp: Erasing...
-  "%SDEL%" -p 1 -q "%systemroot%\Temp\*"
+  "%SDEL%" -p 1 "%systemroot%\Temp\*"
   echo >>> Windows Temp: VAPORIZED.
 )
 if exist "%LocalAppData%\Microsoft\Windows\WER\" (
   echo >>> WER (Local): Erasing...
-  "%SDEL%" -p 1 -q "%LocalAppData%\Microsoft\Windows\WER\*"
+  "%SDEL%" -p 1 "%LocalAppData%\Microsoft\Windows\WER\*"
   echo >>> WER (Local): VAPORIZED.
 )
 if exist "%ProgramData%\Microsoft\Windows\WER\" (
   echo >>> WER (ProgramData): Erasing...
-  "%SDEL%" -p 1 -q "%ProgramData%\Microsoft\Windows\WER\*"
+  "%SDEL%" -p 1 "%ProgramData%\Microsoft\Windows\WER\*"
   echo >>> WER (ProgramData): VAPORIZED.
 )
 if exist "%systemroot%\Prefetch\" (
   echo >>> Prefetch: Erasing...
-  "%SDEL%" -p 1 -q "%systemroot%\Prefetch\*"
+  "%SDEL%" -p 1 "%systemroot%\Prefetch\*"
   echo >>> Prefetch: VAPORIZED.
 )
 if exist "%systemroot%\SoftwareDistribution\Download\" (
   echo >>> Windows Update downloads: Erasing...
-  "%SDEL%" -p 1 -q "%systemroot%\SoftwareDistribution\Download\*"
+  "%SDEL%" -p 1 "%systemroot%\SoftwareDistribution\Download\*"
   echo >>> Windows Update downloads: VAPORIZED.
 )
 if exist "%systemroot%\Logs\CBS\" (
   echo >>> CBS logs: Erasing...
-  "%SDEL%" -p 1 -q "%systemroot%\Logs\CBS\*"
+  "%SDEL%" -p 1 "%systemroot%\Logs\CBS\*"
   echo >>> CBS logs: VAPORIZED.
 )
 if exist "%systemroot%\Logs\WindowsUpdate\" (
   echo >>> Windows Update logs: Erasing...
-  "%SDEL%" -p 1 -q "%systemroot%\Logs\WindowsUpdate\*"
+  "%SDEL%" -p 1 "%systemroot%\Logs\WindowsUpdate\*"
   echo >>> Windows Update logs: VAPORIZED.
 )
 if exist "%ProgramData%\USOShared\Logs\" (
   echo >>> USOShared logs: Erasing...
-  "%SDEL%" -p 1 -q "%ProgramData%\USOShared\Logs\*"
+  "%SDEL%" -p 1 "%ProgramData%\USOShared\Logs\*"
   echo >>> USOShared logs: VAPORIZED.
 )
 
@@ -318,12 +318,12 @@ echo [>] Final Pockets: Emptying the Bin and Clipboard.
 echo off | clip
 if exist "%LocalAppData%\Microsoft\Windows\Clipboard\" (
   echo >>> Clipboard history: Erasing...
-  "%SDEL%" -p 1 -q "%LocalAppData%\Microsoft\Windows\Clipboard\*"
+  "%SDEL%" -p 1 "%LocalAppData%\Microsoft\Windows\Clipboard\*"
   echo >>> Clipboard history: VAPORIZED.
 )
 if exist "%systemdrive%\$Recycle.Bin" (
   echo >>> Recycle Bin: Erasing...
-  "%SDEL%" -p 3 -s -q "%systemdrive%\$Recycle.Bin"
+  "%SDEL%" -p 3 -s "%systemdrive%\$Recycle.Bin"
   echo >>> Recycle Bin: VAPORIZED.
 )
 

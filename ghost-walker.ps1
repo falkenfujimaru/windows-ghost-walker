@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Continue'
 $arch64 = [Environment]::Is64BitOperatingSystem
 $sdelName = if ($arch64) { 'sdelete64.exe' } else { 'sdelete.exe' }
 $SDEL = Join-Path $PSScriptRoot $sdelName
@@ -8,7 +8,9 @@ if (!(Test-Path $SDEL)) {
     $zip = Join-Path $env:TEMP 'SDelete.zip'
     Invoke-WebRequest -Uri 'https://download.sysinternals.com/files/SDelete.zip' -OutFile $zip -UseBasicParsing
     Expand-Archive -Path $zip -DestinationPath $PSScriptRoot -Force
-  } catch {}
+  } catch {
+    Write-Host "[!] Error downloading SDelete: $_"
+  }
   if (!(Test-Path $SDEL)) {
     if (Test-Path (Join-Path $PSScriptRoot 'sdelete64.exe')) { $SDEL = Join-Path $PSScriptRoot 'sdelete64.exe' }
     elseif (Test-Path (Join-Path $PSScriptRoot 'sdelete.exe')) { $SDEL = Join-Path $PSScriptRoot 'sdelete.exe' }
@@ -37,8 +39,8 @@ Write-Host "[!] WARNING: You are about to enter Stealth Mode."
 Write-Host "[!] Everything you've done on this box will be NUKED."
 Write-Host "[>] Booting the Void Engine... Time to vanish."
 Write-Host "[>] Flatlining active witnesses (apps) to unlock data vaults..."
-"chrome","msedge","brave","firefox","opera","Discord","DiscordCanary","DiscordPTB","WhatsApp","Telegram","explorer" | ForEach-Object { Stop-Process -Name $_ -Force -ErrorAction SilentlyContinue }
-function WipePath($path,$startMsg,$endMsg){ if(Test-Path $path){ Write-Host $startMsg; & $SDEL -p 3 -s -q $path; Write-Host $endMsg } }
+"chrome","msedge","brave","firefox","opera","Discord","DiscordCanary","DiscordPTB","WhatsApp","Telegram","explorer" | ForEach-Object { Stop-Process -Name $_ -Force -ErrorAction Continue }
+function WipePath($path,$startMsg,$endMsg){ if(Test-Path $path){ Write-Host $startMsg; & $SDEL -p 3 -s $path; Write-Host $endMsg } }
 Write-Host "[>] Zeroing out the personal vaults. No history, no mystery."
 WipePath "$env:USERPROFILE\Downloads\*" ">>> Nuking Downloads... shredding every byte." ">>> Downloads folder: VAPORIZED."
 WipePath "$env:USERPROFILE\Documents\*" ">>> Sanitizing Documents... leave no trace." ">>> Documents folder: GHOSTED."
@@ -62,21 +64,21 @@ if ($mode -eq 'A') {
   if (Ask "[?] Nuke WhatsApp? [Y/N]") { $DO_WHATSAPP=$true }
   if (Ask "[?] Nuke Telegram? [Y/N]") { $DO_TELEGRAM=$true }
 }
-if ($DO_CHROME -and (Test-Path "$env:LocalAppData\Google\Chrome\User Data\")) { Write-Host ">>> Chrome shadows: Vaporizing..."; & $SDEL -p 3 -s -q "$env:LocalAppData\Google\Chrome\User Data\*"; Write-Host ">>> Chrome cache: VAPORIZED." }
-if ($DO_EDGE -and (Test-Path "$env:LocalAppData\Microsoft\Edge\User Data\")) { Write-Host ">>> Edge fingerprints: Shredding..."; & $SDEL -p 3 -s -q "$env:LocalAppData\Microsoft\Edge\User Data\*"; Write-Host ">>> Edge cache: VAPORIZED." }
-if ($DO_BRAVE -and (Test-Path "$env:LocalAppData\BraveSoftware\Brave-Browser\User Data\")) { Write-Host ">>> Brave profiles: Obliterating..."; & $SDEL -p 3 -s -q "$env:LocalAppData\BraveSoftware\Brave-Browser\User Data\*"; Write-Host ">>> Brave cache: VAPORIZED." }
-if ($DO_FIREFOX -and (Test-Path "$env:AppData\Mozilla\Firefox\Profiles\")) { Write-Host ">>> Firefox profiles: Erasing..."; & $SDEL -p 3 -s -q "$env:AppData\Mozilla\Firefox\Profiles\*"; Write-Host ">>> Firefox profiles: VAPORIZED." }
-if ($DO_FIREFOX -and (Test-Path "$env:LocalAppData\Mozilla\Firefox\Profiles\")) { Write-Host ">>> Firefox local profiles: Erasing..."; & $SDEL -p 3 -s -q "$env:LocalAppData\Mozilla\Firefox\Profiles\*"; Write-Host ">>> Firefox local profiles: VAPORIZED." }
-if ($DO_FIREFOX -and (Test-Path "$env:AppData\Mozilla\Firefox\Crash Reports\")) { Write-Host ">>> Firefox crash reports: Erasing..."; & $SDEL -p 3 -s -q "$env:AppData\Mozilla\Firefox\Crash Reports\*"; Write-Host ">>> Firefox crash reports: VAPORIZED." }
-if ($DO_OPERA -and (Test-Path "$env:AppData\Opera Software\Opera Stable\")) { Write-Host ">>> Opera cache: Erasing..."; & $SDEL -p 3 -s -q "$env:AppData\Opera Software\Opera Stable\*"; Write-Host ">>> Opera cache: VAPORIZED." }
-if ($DO_OPERA -and (Test-Path "$env:LocalAppData\Opera Software\Opera Stable\")) { Write-Host ">>> Opera local cache: Erasing..."; & $SDEL -p 3 -s -q "$env:LocalAppData\Opera Software\Opera Stable\*"; Write-Host ">>> Opera local cache: VAPORIZED." }
-if ($DO_DISCORD -and (Test-Path "$env:AppData\discord\")) { Write-Host ">>> Discord cache: Erasing..."; & $SDEL -p 3 -s -q "$env:AppData\discord\*"; Write-Host ">>> Discord cache: VAPORIZED." }
-if ($DO_DISCORD -and (Test-Path "$env:AppData\discordcanary\")) { Write-Host ">>> Discord Canary cache: Erasing..."; & $SDEL -p 3 -s -q "$env:AppData\discordcanary\*"; Write-Host ">>> Discord Canary cache: VAPORIZED." }
-if ($DO_DISCORD -and (Test-Path "$env:AppData\discordptb\")) { Write-Host ">>> Discord PTB cache: Erasing..."; & $SDEL -p 3 -s -q "$env:AppData\discordptb\*"; Write-Host ">>> Discord PTB cache: VAPORIZED." }
-if ($DO_DISCORD -and (Test-Path "$env:LocalAppData\Discord\")) { Write-Host ">>> Discord local cache: Erasing..."; & $SDEL -p 3 -s -q "$env:LocalAppData\Discord\*"; Write-Host ">>> Discord local cache: VAPORIZED." }
-if ($DO_TELEGRAM -and (Test-Path "$env:AppData\Telegram Desktop\")) { Write-Host ">>> Telegram session: Deleted from reality."; & $SDEL -p 3 -s -q "$env:AppData\Telegram Desktop\*"; Write-Host ">>> Telegram session: VAPORIZED." }
-if ($DO_WHATSAPP -and (Test-Path "$env:LocalAppData\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\")) { Write-Host ">>> WhatsApp Desktop: Erasing..."; & $SDEL -p 3 -s -q "$env:LocalAppData\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\*"; Write-Host ">>> WhatsApp Desktop: VAPORIZED." }
-if ($DO_WHATSAPP -and (Test-Path "$env:AppData\WhatsApp\")) { Write-Host ">>> WhatsApp Roaming: Erasing..."; & $SDEL -p 3 -s -q "$env:AppData\WhatsApp\*"; Write-Host ">>> WhatsApp Roaming: VAPORIZED." }
+if ($DO_CHROME -and (Test-Path "$env:LocalAppData\Google\Chrome\User Data\")) { Write-Host ">>> Chrome shadows: Vaporizing..."; & $SDEL -p 3 -s "$env:LocalAppData\Google\Chrome\User Data\*"; Write-Host ">>> Chrome cache: VAPORIZED." }
+if ($DO_EDGE -and (Test-Path "$env:LocalAppData\Microsoft\Edge\User Data\")) { Write-Host ">>> Edge fingerprints: Shredding..."; & $SDEL -p 3 -s "$env:LocalAppData\Microsoft\Edge\User Data\*"; Write-Host ">>> Edge cache: VAPORIZED." }
+if ($DO_BRAVE -and (Test-Path "$env:LocalAppData\BraveSoftware\Brave-Browser\User Data\")) { Write-Host ">>> Brave profiles: Obliterating..."; & $SDEL -p 3 -s "$env:LocalAppData\BraveSoftware\Brave-Browser\User Data\*"; Write-Host ">>> Brave cache: VAPORIZED." }
+if ($DO_FIREFOX -and (Test-Path "$env:AppData\Mozilla\Firefox\Profiles\")) { Write-Host ">>> Firefox profiles: Erasing..."; & $SDEL -p 3 -s "$env:AppData\Mozilla\Firefox\Profiles\*"; Write-Host ">>> Firefox profiles: VAPORIZED." }
+if ($DO_FIREFOX -and (Test-Path "$env:LocalAppData\Mozilla\Firefox\Profiles\")) { Write-Host ">>> Firefox local profiles: Erasing..."; & $SDEL -p 3 -s "$env:LocalAppData\Mozilla\Firefox\Profiles\*"; Write-Host ">>> Firefox local profiles: VAPORIZED." }
+if ($DO_FIREFOX -and (Test-Path "$env:AppData\Mozilla\Firefox\Crash Reports\")) { Write-Host ">>> Firefox crash reports: Erasing..."; & $SDEL -p 3 -s "$env:AppData\Mozilla\Firefox\Crash Reports\*"; Write-Host ">>> Firefox crash reports: VAPORIZED." }
+if ($DO_OPERA -and (Test-Path "$env:AppData\Opera Software\Opera Stable\")) { Write-Host ">>> Opera cache: Erasing..."; & $SDEL -p 3 -s "$env:AppData\Opera Software\Opera Stable\*"; Write-Host ">>> Opera cache: VAPORIZED." }
+if ($DO_OPERA -and (Test-Path "$env:LocalAppData\Opera Software\Opera Stable\")) { Write-Host ">>> Opera local cache: Erasing..."; & $SDEL -p 3 -s "$env:LocalAppData\Opera Software\Opera Stable\*"; Write-Host ">>> Opera local cache: VAPORIZED." }
+if ($DO_DISCORD -and (Test-Path "$env:AppData\discord\")) { Write-Host ">>> Discord cache: Erasing..."; & $SDEL -p 3 -s "$env:AppData\discord\*"; Write-Host ">>> Discord cache: VAPORIZED." }
+if ($DO_DISCORD -and (Test-Path "$env:AppData\discordcanary\")) { Write-Host ">>> Discord Canary cache: Erasing..."; & $SDEL -p 3 -s "$env:AppData\discordcanary\*"; Write-Host ">>> Discord Canary cache: VAPORIZED." }
+if ($DO_DISCORD -and (Test-Path "$env:AppData\discordptb\")) { Write-Host ">>> Discord PTB cache: Erasing..."; & $SDEL -p 3 -s "$env:AppData\discordptb\*"; Write-Host ">>> Discord PTB cache: VAPORIZED." }
+if ($DO_DISCORD -and (Test-Path "$env:LocalAppData\Discord\")) { Write-Host ">>> Discord local cache: Erasing..."; & $SDEL -p 3 -s "$env:LocalAppData\Discord\*"; Write-Host ">>> Discord local cache: VAPORIZED." }
+if ($DO_TELEGRAM -and (Test-Path "$env:AppData\Telegram Desktop\")) { Write-Host ">>> Telegram session: Deleted from reality."; & $SDEL -p 3 -s "$env:AppData\Telegram Desktop\*"; Write-Host ">>> Telegram session: VAPORIZED." }
+if ($DO_WHATSAPP -and (Test-Path "$env:LocalAppData\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\")) { Write-Host ">>> WhatsApp Desktop: Erasing..."; & $SDEL -p 3 -s "$env:LocalAppData\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\*"; Write-Host ">>> WhatsApp Desktop: VAPORIZED." }
+if ($DO_WHATSAPP -and (Test-Path "$env:AppData\WhatsApp\")) { Write-Host ">>> WhatsApp Roaming: Erasing..."; & $SDEL -p 3 -s "$env:AppData\WhatsApp\*"; Write-Host ">>> WhatsApp Roaming: VAPORIZED." }
 Write-Host "[>] Timeline Eraser: Flattening the Event Logs."
 $logs = & wevtutil.exe el
 foreach($log in $logs){ if([string]::IsNullOrWhiteSpace($log)){continue}; Write-Host ">>> Reality check: Cleaning log $log"; & wevtutil.exe cl "$log"; Write-Host ">>> Event log $log: FLATTENED." }
@@ -89,30 +91,30 @@ if (Test-Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer
 if (Test-Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers") { Remove-Item "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers" -Recurse -Force; Write-Host ">>> RDP Servers: DELETED" }
 if (Test-Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default") { Remove-Item "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default" -Recurse -Force; Write-Host ">>> RDP Default: DELETED" }
 if (Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Terminal Server Client" -Name "UsernameHint" -ErrorAction SilentlyContinue) { Remove-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Terminal Server Client" -Name "UsernameHint" -Force; Write-Host ">>> RDP Hints: DELETED" }
-if (Test-Path "$env:USERPROFILE\Documents\Default.rdp") { Write-Host ">>> RDP file (Documents\Default.rdp): Erasing..."; Start-Process cmd -ArgumentList "/c attrib -s -h `"$env:USERPROFILE\Documents\Default.rdp`"" -NoNewWindow -Wait; & $SDEL -p 3 -q "$env:USERPROFILE\Documents\Default.rdp"; Write-Host ">>> RDP file (Documents\Default.rdp): VAPORIZED." }
-if (Test-Path "$env:USERPROFILE\Default.rdp") { Write-Host ">>> RDP file (Default.rdp): Erasing..."; Start-Process cmd -ArgumentList "/c attrib -s -h `"$env:USERPROFILE\Default.rdp`"" -NoNewWindow -Wait; & $SDEL -p 3 -q "$env:USERPROFILE\Default.rdp"; Write-Host ">>> RDP file (Default.rdp): VAPORIZED." }
-if (Test-Path "$env:LocalAppData\Microsoft\Terminal Server Client\Cache\") { Write-Host ">>> RDP bitmap cache: Erasing..."; & $SDEL -p 3 -s -q "$env:LocalAppData\Microsoft\Terminal Server Client\Cache\*"; Write-Host ">>> RDP bitmap cache: VAPORIZED." }
+if (Test-Path "$env:USERPROFILE\Documents\Default.rdp") { Write-Host ">>> RDP file (Documents\Default.rdp): Erasing..."; Start-Process cmd -ArgumentList "/c attrib -s -h `"$env:USERPROFILE\Documents\Default.rdp`"" -NoNewWindow -Wait; & $SDEL -p 3 "$env:USERPROFILE\Documents\Default.rdp"; Write-Host ">>> RDP file (Documents\Default.rdp): VAPORIZED." }
+if (Test-Path "$env:USERPROFILE\Default.rdp") { Write-Host ">>> RDP file (Default.rdp): Erasing..."; Start-Process cmd -ArgumentList "/c attrib -s -h `"$env:USERPROFILE\Default.rdp`"" -NoNewWindow -Wait; & $SDEL -p 3 "$env:USERPROFILE\Default.rdp"; Write-Host ">>> RDP file (Default.rdp): VAPORIZED." }
+if (Test-Path "$env:LocalAppData\Microsoft\Terminal Server Client\Cache\") { Write-Host ">>> RDP bitmap cache: Erasing..."; & $SDEL -p 3 -s "$env:LocalAppData\Microsoft\Terminal Server Client\Cache\*"; Write-Host ">>> RDP bitmap cache: VAPORIZED." }
 Write-Host ">>> Removing stored RDP credentials..."
 $cmdkeyList = & cmdkey /list
-foreach($line in $cmdkeyList){ $m=[regex]::Match($line,'TERMSRV\/[^\s]+'); if($m.Success){ & cmdkey /delete:$($m.Value) | Out-Null; Write-Host ">>> RDP credentials $($m.Value): DELETED." } }
-if (Test-Path "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms") { & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms" }
+foreach($line in $cmdkeyList){ $m=[regex]::Match($line,'TERMSRV\/[^\s]+'); if($m.Success){ & cmdkey /delete:$($m.Value); Write-Host ">>> RDP credentials $($m.Value): DELETED." } }
+if (Test-Path "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms") { & $SDEL -p 3 "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms" }
 Write-Host "[>] Shell Silence: Muting the command echoes."
-if (Test-Path "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt") { & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" }
+if (Test-Path "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt") { & $SDEL -p 3 "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" }
 Write-Host "[>] Shortcut Purge: Burning the Recent Files and Thumbnails."
-if (Test-Path "$env:AppData\Microsoft\Windows\Recent\") { Write-Host ">>> Recent files: Erasing..."; & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\Recent\*"; Write-Host ">>> Recent files: VAPORIZED." }
-if (Test-Path "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\") { Write-Host ">>> JumpLists (AutomaticDestinations): Erasing..."; & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\*"; Write-Host ">>> JumpLists (AutomaticDestinations): VAPORIZED." }
-if (Test-Path "$env:AppData\Microsoft\Windows\Recent\CustomDestinations\") { Write-Host ">>> JumpLists (CustomDestinations): Erasing..."; & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\Recent\CustomDestinations\*"; Write-Host ">>> JumpLists (CustomDestinations): VAPORIZED." }
-if (Get-ChildItem "$env:LocalAppData\Microsoft\Windows\Explorer" -Filter "thumbcache_*.db" -ErrorAction SilentlyContinue) { Write-Host ">>> Thumbnail caches: Erasing..."; & $SDEL -p 3 -q "$env:LocalAppData\Microsoft\Windows\Explorer\thumbcache_*.db"; Write-Host ">>> Thumbnail caches: VAPORIZED." }
+if (Test-Path "$env:AppData\Microsoft\Windows\Recent\") { Write-Host ">>> Recent files: Erasing..."; & $SDEL -p 3 "$env:AppData\Microsoft\Windows\Recent\*"; Write-Host ">>> Recent files: VAPORIZED." }
+if (Test-Path "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\") { Write-Host ">>> JumpLists (AutomaticDestinations): Erasing..."; & $SDEL -p 3 "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\*"; Write-Host ">>> JumpLists (AutomaticDestinations): VAPORIZED." }
+if (Test-Path "$env:AppData\Microsoft\Windows\Recent\CustomDestinations\") { Write-Host ">>> JumpLists (CustomDestinations): Erasing..."; & $SDEL -p 3 "$env:AppData\Microsoft\Windows\Recent\CustomDestinations\*"; Write-Host ">>> JumpLists (CustomDestinations): VAPORIZED." }
+if (Get-ChildItem "$env:LocalAppData\Microsoft\Windows\Explorer" -Filter "thumbcache_*.db" -ErrorAction SilentlyContinue) { Write-Host ">>> Thumbnail caches: Erasing..."; & $SDEL -p 3 "$env:LocalAppData\Microsoft\Windows\Explorer\thumbcache_*.db"; Write-Host ">>> Thumbnail caches: VAPORIZED." }
 Write-Host "[>] System Flush: Draining the Temp and Error reports."
-if (Test-Path "$env:TEMP\") { Write-Host ">>> Temp folder: Erasing..."; & $SDEL -p 1 -q "$env:TEMP\*"; Write-Host ">>> Temp folder: VAPORIZED." }
-if (Test-Path "$env:SystemRoot\Temp\") { Write-Host ">>> Windows Temp: Erasing..."; & $SDEL -p 1 -q "$env:SystemRoot\Temp\*"; Write-Host ">>> Windows Temp: VAPORIZED." }
-if (Test-Path "$env:LocalAppData\Microsoft\Windows\WER\") { Write-Host ">>> WER (Local): Erasing..."; & $SDEL -p 1 -q "$env:LocalAppData\Microsoft\Windows\WER\*"; Write-Host ">>> WER (Local): VAPORIZED." }
-if (Test-Path "$env:ProgramData\Microsoft\Windows\WER\") { Write-Host ">>> WER (ProgramData): Erasing..."; & $SDEL -p 1 -q "$env:ProgramData\Microsoft\Windows\WER\*"; Write-Host ">>> WER (ProgramData): VAPORIZED." }
-if (Test-Path "$env:SystemRoot\Prefetch\") { Write-Host ">>> Prefetch: Erasing..."; & $SDEL -p 1 -q "$env:SystemRoot\Prefetch\*"; Write-Host ">>> Prefetch: VAPORIZED." }
-if (Test-Path "$env:SystemRoot\SoftwareDistribution\Download\") { Write-Host ">>> Windows Update downloads: Erasing..."; & $SDEL -p 1 -q "$env:SystemRoot\SoftwareDistribution\Download\*"; Write-Host ">>> Windows Update downloads: VAPORIZED." }
-if (Test-Path "$env:SystemRoot\Logs\CBS\") { Write-Host ">>> CBS logs: Erasing..."; & $SDEL -p 1 -q "$env:SystemRoot\Logs\CBS\*"; Write-Host ">>> CBS logs: VAPORIZED." }
-if (Test-Path "$env:SystemRoot\Logs\WindowsUpdate\") { Write-Host ">>> Windows Update logs: Erasing..."; & $SDEL -p 1 -q "$env:SystemRoot\Logs\WindowsUpdate\*"; Write-Host ">>> Windows Update logs: VAPORIZED." }
-if (Test-Path "$env:ProgramData\USOShared\Logs\") { Write-Host ">>> USOShared logs: Erasing..."; & $SDEL -p 1 -q "$env:ProgramData\USOShared\Logs\*"; Write-Host ">>> USOShared logs: VAPORIZED." }
+if (Test-Path "$env:TEMP\") { Write-Host ">>> Temp folder: Erasing..."; & $SDEL -p 1 "$env:TEMP\*"; Write-Host ">>> Temp folder: VAPORIZED." }
+if (Test-Path "$env:SystemRoot\Temp\") { Write-Host ">>> Windows Temp: Erasing..."; & $SDEL -p 1 "$env:SystemRoot\Temp\*"; Write-Host ">>> Windows Temp: VAPORIZED." }
+if (Test-Path "$env:LocalAppData\Microsoft\Windows\WER\") { Write-Host ">>> WER (Local): Erasing..."; & $SDEL -p 1 "$env:LocalAppData\Microsoft\Windows\WER\*"; Write-Host ">>> WER (Local): VAPORIZED." }
+if (Test-Path "$env:ProgramData\Microsoft\Windows\WER\") { Write-Host ">>> WER (ProgramData): Erasing..."; & $SDEL -p 1 "$env:ProgramData\Microsoft\Windows\WER\*"; Write-Host ">>> WER (ProgramData): VAPORIZED." }
+if (Test-Path "$env:SystemRoot\Prefetch\") { Write-Host ">>> Prefetch: Erasing..."; & $SDEL -p 1 "$env:SystemRoot\Prefetch\*"; Write-Host ">>> Prefetch: VAPORIZED." }
+if (Test-Path "$env:SystemRoot\SoftwareDistribution\Download\") { Write-Host ">>> Windows Update downloads: Erasing..."; & $SDEL -p 1 "$env:SystemRoot\SoftwareDistribution\Download\*"; Write-Host ">>> Windows Update downloads: VAPORIZED." }
+if (Test-Path "$env:SystemRoot\Logs\CBS\") { Write-Host ">>> CBS logs: Erasing..."; & $SDEL -p 1 "$env:SystemRoot\Logs\CBS\*"; Write-Host ">>> CBS logs: VAPORIZED." }
+if (Test-Path "$env:SystemRoot\Logs\WindowsUpdate\") { Write-Host ">>> Windows Update logs: Erasing..."; & $SDEL -p 1 "$env:SystemRoot\Logs\WindowsUpdate\*"; Write-Host ">>> Windows Update logs: VAPORIZED." }
+if (Test-Path "$env:ProgramData\USOShared\Logs\") { Write-Host ">>> USOShared logs: Erasing..."; & $SDEL -p 1 "$env:ProgramData\USOShared\Logs\*"; Write-Host ">>> USOShared logs: VAPORIZED." }
 Write-Host ">>> RDP Registry MRU: Purging..."
 if (Test-Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default") { Remove-Item "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default" -Recurse -Force }
 if (Test-Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers") { Remove-Item "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers" -Recurse -Force }
@@ -120,8 +122,8 @@ New-Item -Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers
 New-Item -Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default" -Force | Out-Null
 Write-Host "[>] Final Pockets: Emptying the Bin and Clipboard."
 Set-Clipboard -Value ""
-if (Test-Path "$env:LocalAppData\Microsoft\Windows\Clipboard\") { Write-Host ">>> Clipboard history: Erasing..."; & $SDEL -p 1 -q "$env:LocalAppData\Microsoft\Windows\Clipboard\*"; Write-Host ">>> Clipboard history: VAPORIZED." }
-if (Test-Path "$env:SystemDrive\$Recycle.Bin") { Write-Host ">>> Recycle Bin: Erasing..."; & $SDEL -p 3 -s -q "$env:SystemDrive\$Recycle.Bin"; Write-Host ">>> Recycle Bin: VAPORIZED." }
+if (Test-Path "$env:LocalAppData\Microsoft\Windows\Clipboard\") { Write-Host ">>> Clipboard history: Erasing..."; & $SDEL -p 1 "$env:LocalAppData\Microsoft\Windows\Clipboard\*"; Write-Host ">>> Clipboard history: VAPORIZED." }
+if (Test-Path "$env:SystemDrive\$Recycle.Bin") { Write-Host ">>> Recycle Bin: Erasing..."; & $SDEL -p 3 -s "$env:SystemDrive\$Recycle.Bin"; Write-Host ">>> Recycle Bin: VAPORIZED." }
 Write-Host "[>] Void Filling: Overwriting free space on $env:SystemDrive (Sanitize Mode)"
 & $SDEL -z $env:SystemDrive
 $fixed = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.Name -ne ("$env:SystemDrive" + "\") }
