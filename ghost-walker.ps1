@@ -191,7 +191,15 @@ foreach ($f in $folders) {
         if ($f -eq $env:USERPROFILE -or $f -eq "C:\" -or $f -eq "C:\Users") { continue }
         
         Write-Host "[~] Shredding contents of: $f" -FG $Y
-        Force-Eradicate $f "Folder"
+        
+        # Only wipe contents, preserve the parent folder
+        Get-ChildItem -Path $f -Force -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.PSIsContainer) {
+                Force-Eradicate $_.FullName "Folder"
+            } else {
+                Force-Eradicate $_.FullName "File"
+            }
+        }
     }
 }
 
@@ -258,6 +266,12 @@ Write-Host "   MISSION COMPLETE. YOU ARE NOW A GHOST." -FG $G
 Write-Host "===============================================================" -FG $G
 
 $choice = Read-Host "[1] Reboot & Vanish [2] Shutdown & Vanish [3] Self-Destruct & Exit"
+
+Write-Host ""
+Write-Host "   Sayonara from Falken Fujimaru..." -FG $C
+Write-Host "   The shadows have reclaimed what was theirs." -FG $C
+Write-Host ""
+
 if ($choice -eq '1') {
     $scriptPath = $PSCommandPath
     Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`" && shutdown /r /t 0 /f" -WindowStyle Hidden
