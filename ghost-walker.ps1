@@ -163,8 +163,10 @@ Force-Eradicate $targetDir "Folder"
 
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
 Write-Host "[4/12] Vaporizing Active Witnesses & Personal Stash..." -FG $C
-$procs = "chrome","msedge","brave","firefox","opera","Discord","WhatsApp","Telegram","explorer"
-Stop-Process -Name $procs -Force -ErrorAction SilentlyContinue
+$procs = "chrome","msedge","brave","firefox","opera","Discord","WhatsApp","Telegram","explorer","msedgewebview2","edge","iexplore"
+foreach ($p in $procs) {
+    Stop-Process -Name $p -Force -ErrorAction SilentlyContinue
+}
 Start-Sleep -Seconds 2
 
 # Helper function to get real paths from Registry (User Shell Folders)
@@ -247,18 +249,24 @@ $appData = @(
     # System
     "$env:TEMP",
     "$env:WINDIR\Temp",
-    "$env:WINDIR\Prefetch"
+    "$env:WINDIR\Prefetch",
+    "$env:LocalAppData\Microsoft\Windows\WebCache",
+    "$env:LocalAppData\Microsoft\Windows\INetCache"
 )
 
-# 1. Clear Clipboard
+# 1. Clear DNS Cache
+Write-Host "[~] Flushing DNS Cache..." -FG $Y
+Clear-DnsClientCache -ErrorAction SilentlyContinue
+
+# 2. Clear Clipboard
 Write-Host "[~] Vaporizing Clipboard..." -FG $Y
 Set-Clipboard $null -ErrorAction SilentlyContinue
 
-# 2. Clear Recycle Bin
+# 3. Clear Recycle Bin
 Write-Host "[~] Emptying Recycle Bin..." -FG $Y
 Clear-RecycleBin -Force -ErrorAction SilentlyContinue
 
-# 3. Wipe Artifact Paths
+# 4. Wipe Artifact Paths
 $totalArtifacts = $appData.Count
 $artCounter = 0
 foreach ($path in $appData) {
@@ -267,6 +275,13 @@ foreach ($path in $appData) {
     
     if (Test-Path $path) {
         Write-Host "   [+] Target Locked: $path" -FG DarkGray
+        
+        # Special Hunter for Browsers: History, Cookies, Web Data
+        $browserFiles = @("History", "Cookies", "Web Data", "Login Data", "Top Sites", "Visited Links")
+        Get-ChildItem -Path $path -Include $browserFiles -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+             Force-Eradicate $_.FullName "File"
+        }
+
         Force-Eradicate $path "Folder"
     }
 }
