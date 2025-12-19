@@ -27,10 +27,10 @@ if (-not $isAdmin) {
   exit
 }
 Start-Process -FilePath $SDEL -ArgumentList "-accepteula" -NoNewWindow -Wait
-$host.UI.RawUI.WindowTitle = "GHOST-WALKER // VOID PROTOCOL - Falken Fujimaru"
+$host.UI.RawUI.WindowTitle = "GHOST-WALKER // FF VOID PROTOCOL"
 Write-Host "=============================================================="
 Write-Host "  GHOST-WALKER : THE ULTIMATE TRACE VAPORIZER"
-Write-Host "  System Scrub by Falken Fujimaru — [PRIVATE LICENSE]"
+Write-Host "  System Coded by 乍丹し片ヨ几　乍凵勹工冊丹尺凵 — [PRIVATE LICENSE]"
 Write-Host "=============================================================="
 Write-Host ""
 Write-Host "[!] WARNING: You are about to enter Stealth Mode."
