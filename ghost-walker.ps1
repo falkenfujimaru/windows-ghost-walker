@@ -76,6 +76,7 @@ if ($confirm -ne 'GHOST') {
 
 # --- MODULE 1: TELEMETRY BLACKOUT ---
 Write-Host "[1/12] Cutting the Cord: Microsoft Telemetry Blackout..." -FG $C
+Write-Host "   [+] Telemetry Uplink: SEVERED" -FG DarkGray
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0
 Add-Content -Path "$env:windir\System32\drivers\etc\hosts" -Value "`n0.0.0.0 oca.telemetry.microsoft.com`n0.0.0.0 telemetry.microsoft.com"
 
@@ -133,6 +134,8 @@ function Force-Eradicate {
 
 # --- MODULE 2: STATE INCONSISTENCY (DEEP CLEAN) ---
 Write-Host "[2/12] Nuking Deep Artifacts (Shimcache/Amcache)..." -FG $C
+Write-Host "   [+] Shimcache: FLUSHED" -FG DarkGray
+Write-Host "   [+] Amcache: PURGED" -FG DarkGray
 
 # Shimcache & AppCompat
 Force-Eradicate "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache" "Registry"
@@ -143,15 +146,19 @@ $bamPath = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings"
 if (Test-Path $bamPath) {
     Get-ChildItem $bamPath | ForEach-Object { Force-Eradicate $_.PSPath "Registry" }
 }
+Write-Host "   [+] BAM Evidence: VAPORIZED" -FG DarkGray
 
 # --- MODULE 3: MFT BURIAL (THE BURIER) ---
 Write-Host "[3/12] Burying the Evidence: MFT Overwrite Sequence..." -FG $C
 $targetDir = "$env:TEMP\void_fill"
 New-Item -ItemType Directory -Path $targetDir -Force -ErrorAction SilentlyContinue | Out-Null
 # Optimize: Reduce count, increase speed. 1000 files is enough to clutter MFT.
-for ($i=1; $i -le 1000; $i++) {
+$maxFiles = 1000
+for ($i=1; $i -le $maxFiles; $i++) {
+    Write-Progress -Activity "MFT Burial In Progress" -Status "Overwriting MFT Record $i of $maxFiles" -PercentComplete (($i / $maxFiles) * 100)
     $null = New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID" -Force
 }
+Write-Progress -Activity "MFT Burial In Progress" -Completed
 Force-Eradicate $targetDir "Folder"
 
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
@@ -193,12 +200,25 @@ foreach ($f in $folders) {
         Write-Host "[~] Shredding contents of: $f" -FG $Y
         
         # Only wipe contents, preserve the parent folder
-        Get-ChildItem -Path $f -Force -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-            if ($_.PSIsContainer) {
-                Force-Eradicate $_.FullName "Folder"
-            } else {
-                Force-Eradicate $_.FullName "File"
+        $files = Get-ChildItem -Path $f -Force -Recurse -ErrorAction SilentlyContinue
+        $totalFiles = $files.Count
+        $counter = 0
+
+        if ($totalFiles -gt 0) {
+             foreach ($item in $files) {
+                $counter++
+                # Update progress bar every 10 items to reduce overhead
+                if ($counter % 10 -eq 0) {
+                    Write-Progress -Activity "Shredding Data in $f" -Status "Vaporizing: $($item.Name)" -PercentComplete (($counter / $totalFiles) * 100)
+                }
+
+                if ($item.PSIsContainer) {
+                    Force-Eradicate $item.FullName "Folder"
+                } else {
+                    Force-Eradicate $item.FullName "File"
+                }
             }
+            Write-Progress -Activity "Shredding Data in $f" -Completed
         }
     }
 }
@@ -206,9 +226,25 @@ foreach ($f in $folders) {
 # --- MODULE 5: BROWSER, COMMS & SYSTEM ARTIFACTS ---
 Write-Host "[5/12] Scorching Browser, Comms & System Artifacts..." -FG $C
 $appData = @(
+    # Browsers
     "$env:LocalAppData\Google\Chrome\User Data",
     "$env:LocalAppData\Microsoft\Edge\User Data",
+    "$env:LocalAppData\BraveSoftware\Brave-Browser\User Data",
+    "$env:AppData\Mozilla\Firefox",
+    "$env:LocalAppData\Mozilla\Firefox",
+    "$env:AppData\Opera Software",
+    "$env:LocalAppData\Opera Software",
+
+    # Messengers
     "$env:AppData\Telegram Desktop",
+    "$env:AppData\discord",
+    "$env:LocalAppData\Discord",
+    "$env:AppData\WhatsApp",
+    "$env:LocalAppData\WhatsApp",
+    "$env:LocalAppData\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm", # WhatsApp Store
+    "$env:LocalAppData\Packages\5319275A.WhatsAppBeta_cv1g1gvanyjgm",    # WhatsApp Beta
+
+    # System
     "$env:TEMP",
     "$env:WINDIR\Temp",
     "$env:WINDIR\Prefetch"
@@ -223,22 +259,34 @@ Write-Host "[~] Emptying Recycle Bin..." -FG $Y
 Clear-RecycleBin -Force -ErrorAction SilentlyContinue
 
 # 3. Wipe Artifact Paths
+$totalArtifacts = $appData.Count
+$artCounter = 0
 foreach ($path in $appData) {
+    $artCounter++
+    Write-Progress -Activity "Scorching Artifacts" -Status "Wiping: $path" -PercentComplete (($artCounter / $totalArtifacts) * 100)
+    
     if (Test-Path $path) {
-        Write-Host "[~] Wiping: $path" -FG $Y
+        Write-Host "   [+] Target Locked: $path" -FG DarkGray
         Force-Eradicate $path "Folder"
     }
 }
+Write-Progress -Activity "Scorching Artifacts" -Completed
 
 # --- MODULE 6: TIMING GAP FILLER (THE NOISE) ---
 Write-Host "[6/12] Injecting Digital Noise (Timing Gap Filler)..." -FG $C
 # Pertama, bersihkan log asli
 $logs = Get-WinEvent -ListLog * -Force
 foreach ($l in $logs) { try { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($l.LogName) } catch {} }
+Write-Host "   [+] System Logs: VACUUMED" -FG DarkGray
+
 # Kedua, injeksi log palsu agar tidak terlihat 'kosong'
-for ($i=1; $i -le 20; $i++) {
+$noiseCount = 20
+for ($i=1; $i -le $noiseCount; $i++) {
+    Write-Progress -Activity "Injecting Noise" -Status "Fabricating Event $i of $noiseCount" -PercentComplete (($i / $noiseCount) * 100)
     Write-EventLog -LogName Application -Source "MsiInstaller" -EntryType Information -EventId 1033 -Message "Windows Installer reconfigured the product. Control Panel\Programs\Features. Transaction: $i."
 }
+Write-Progress -Activity "Injecting Noise" -Completed
+Write-Host "   [+] Fake Entropy: INJECTED" -FG DarkGray
 
 # --- MODULE 7: SHELL & RDP PURGE ---
 Write-Host "[7/12] Wiping Shell Memory & RDP Tracks..." -FG $C
