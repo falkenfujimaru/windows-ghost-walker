@@ -1,387 +1,134 @@
-$ErrorActionPreference = 'Continue'
-$version = "3.0"
+# ===============================================================
+#  PROJECT: GHOST-WALKER // VOID PROTOCOL v3.5 (PS1)
+#  Coded by: Falken Fujimaru [The Digital Phantom]
+#  Counter-Forensic: Timing Gaps, State Sync, MFT Overwriting
+# ===============================================================
 
-# =================== VISUAL ELEMENTS ===================
+$ErrorActionPreference = 'SilentlyContinue'
+$version = "3.5-PRO"
+
 function Show-Header {
     Clear-Host
+    $G = "Green"; $C = "Cyan"; $Y = "Yellow"; $R = "Red"
+    Write-Host "=======================================================================================================" -FG $G
+    Write-Host "   PHANTOM-LEAP // GHOST-WALKER v$version " -FG $G
+    Write-Host "   [ STATUS: COUNTER-FORENSIC ACTIVE ]" -FG $G
+    Write-Host "=======================================================================================================" -FG $G
     Write-Host ""
-    Write-Host "=======================================================================================================" -ForegroundColor Green
-    Write-Host "   ██████╗ ██╗  ██╗ ██████╗ ███████╗████████╗    ██╗    ██╗ █████╗ ██╗     ██╗  ██╗███████╗██████╗ " -ForegroundColor Green
-    Write-Host "   ██╔════╝ ██║  ██║██╔═══██╗██╔════╝╚══██╔══╝    ██║    ██║██╔══██╗██║     ██║ ██╔╝██╔════╝██╔══██╗" -ForegroundColor Green
-    Write-Host "   ██║  ███╗███████║██║   ██║███████╗   ██║       ██║ █╗ ██║███████║██║     █████╔╝ █████╗  ██████╔╝" -ForegroundColor Green
-    Write-Host "   ██║   ██║██╔══██║██║   ██║╚════██║   ██║       ██║███╗██║██╔══██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗" -ForegroundColor Green
-    Write-Host "   ╚██████╔╝██║  ██║╚██████╔╝███████║   ██║       ╚███╔███╔╝██║  ██║███████╗██║  ██╗███████╗██║  ██║" -ForegroundColor Green
-    Write-Host "    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝        ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝" -ForegroundColor Green
-    Write-Host "=======================================================================================================" -ForegroundColor Green
-    Write-Host "                ULTIMATE TRACE VAPORIZER v$version" -ForegroundColor Green
-    Write-Host "            [ System Sterilization Suite - No Trace Left ]" -ForegroundColor Green
-    Write-Host "=======================================================================================================" -ForegroundColor Green
+    Write-Host "   Crafted by 乍丹し片ヨ几　乍凵勹工冊丹尺凵" -FG $C
+    Write-Host "   Breaking Codes, Not Hearts." -FG $C
     Write-Host ""
-    Write-Host "   Crafted by 乍丹し片ヨ几　乍凵勹工冊丹尺凵" -ForegroundColor Cyan
-    Write-Host "   Japanese Indonesian Ethical Hacker" -ForegroundColor Cyan
-    Write-Host "   Breaking Codes, Not Hearts: A Cybersecurity Journey Fueled by Love." -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "=======================================================================================================" -ForegroundColor Green
-    Write-Host ""
+    Write-Host "=======================================================================================================" -FG $G
 }
 
-Show-Header
-
-# =================== PRIVILEGE CHECK ===================
+# --- PRIVILEGE CHECK ---
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Write-Host "[~] [WARNING] ACCESS DENIED" -ForegroundColor Yellow
-    Write-Host "[~] I need God-Mode permissions to access the void." -ForegroundColor Yellow
-    Write-Host "[~] Elevating to shadow clearance..." -ForegroundColor Yellow
-    Write-Host ""
-    Start-Sleep -Seconds 2
+    Write-Host "[!] HOL UP! God-Mode permissions required. Elevating privileges..." -FG $R
     Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
     exit
 }
-Write-Host "[✓] God-Mode: ACTIVATED" -ForegroundColor Green
-Write-Host ""
 
-# =================== SDELETE VALIDATION ===================
-$arch64 = [Environment]::Is64BitOperatingSystem
-$sdelName = if ($arch64) { 'sdelete64.exe' } else { 'sdelete.exe' }
-$SDEL = Join-Path $PSScriptRoot $sdelName
-
-# Check local existence first
+# --- SDELETE VALIDATION ---
+$SDEL = Join-Path $PSScriptRoot (if ([Environment]::Is64BitOperatingSystem) { 'sdelete64.exe' } else { 'sdelete.exe' })
 if (!(Test-Path $SDEL)) {
-    # Fallback check for alternate version
-    $altName = if ($arch64) { 'sdelete.exe' } else { 'sdelete64.exe' }
-    $altPath = Join-Path $PSScriptRoot $altName
-    if (Test-Path $altPath) { $SDEL = $altPath }
+    Write-Host "[~] Summoning the Void Shredder (SDelete)..." -FG $C
+    $zip = "$env:TEMP\s.zip"
+    Invoke-WebRequest -Uri 'https://download.sysinternals.com/files/SDelete.zip' -OutFile $zip -UseBasicParsing
+    Expand-Archive -Path $zip -DestinationPath $PSScriptRoot -Force
+    Remove-Item $zip -Force
 }
+& $SDEL -accepteula > $null 2>&1
 
-if (!(Test-Path $SDEL)) {
-    Write-Host "[~] SDelete not in local cache. Fetching from Sysinternals..." -ForegroundColor Cyan
-    Write-Host "[~] Contacting the void network... (this may take a moment)" -ForegroundColor Cyan
-    try {
-        $zip = Join-Path $env:TEMP 'SDelete.zip'
-        Invoke-WebRequest -Uri 'https://download.sysinternals.com/files/SDelete.zip' -OutFile $zip -UseBasicParsing
-        Expand-Archive -Path $zip -DestinationPath $PSScriptRoot -Force
-        Remove-Item $zip -Force
-        Write-Host "[✓] SDelete acquired from the void" -ForegroundColor Green
-    } catch {
-        Write-Host "[!] Error downloading SDelete: $_" -ForegroundColor Red
-    }
-    
-    # Re-check after download
-    if (Test-Path (Join-Path $PSScriptRoot 'sdelete64.exe')) { $SDEL = Join-Path $PSScriptRoot 'sdelete64.exe' }
-    elseif (Test-Path (Join-Path $PSScriptRoot 'sdelete.exe')) { $SDEL = Join-Path $PSScriptRoot 'sdelete.exe' }
+Show-Header
+
+# --- FINAL WARNING ---
+Write-Host "[!] MISSION: Kill Traces, Bury MFT, Zero-Out Everything." -FG $Y
+$confirm = Read-Host "[?] Ready to disappear? Type 'GHOST' to execute"
+if ($confirm -ne 'GHOST') { exit }
+
+# ===============================================================
+#  COUNTER-FORENSIC MODULES
+# ===============================================================
+
+# --- MODULE 1: TELEMETRY BLACKOUT ---
+Write-Host "[1/12] Cutting the Cord: Microsoft Telemetry Blackout..." -FG $C
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0
+Add-Content -Path "$env:windir\System32\drivers\etc\hosts" -Value "`n0.0.0.0 oca.telemetry.microsoft.com`n0.0.0.0 telemetry.microsoft.com"
+
+# --- MODULE 2: STATE INCONSISTENCY (DEEP CLEAN) ---
+Write-Host "[2/12] Nuking Deep Artifacts (Shimcache/Amcache)..." -FG $C
+# Shimcache & AppCompat
+Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache" -Recurse -Force
+Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppCompatFlags\Explorer" -Recurse -Force
+# BAM (Background Activity Moderator)
+Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\*" -Recurse -Force
+
+# --- MODULE 3: MFT BURIAL (THE BURIER) ---
+Write-Host "[3/12] Burying the Evidence: MFT Overwrite Sequence..." -FG $C
+$targetDir = "$env:TEMP\void_fill"
+New-Item -ItemType Directory -Path $targetDir -Force > $null
+for ($i=1; $i -le 3000; $i++) {
+    New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID" > $null
 }
+& $SDEL -p 1 -q "$targetDir\*.tmp"
+Remove-Item $targetDir -Recurse -Force
 
-if (!(Test-Path $SDEL)) {
-    Write-Host ""
-    Write-Host "[✗] CRITICAL ERROR" -ForegroundColor Red
-    Write-Host "[✗] The shredder (SDelete) failed to materialize." -ForegroundColor Red
-    Write-Host "[✗] Possible causes:" -ForegroundColor Red
-    Write-Host "[✗]   1. Network connection severed" -ForegroundColor Red
-    Write-Host "[✗]   2. Sysinternals portal unreachable" -ForegroundColor Red
-    Write-Host "[✗]   3. Security protocols blocking download" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "[~] Manual option: Place sdelete.exe/sdelete64.exe in script directory." -ForegroundColor Yellow
-    Read-Host "Press Enter to exit..."
-    exit 1
-}
+# --- MODULE 4: PROCESS & DATA VAPORIZATION ---
+Write-Host "[4/12] Vaporizing Active Witnesses & Personal Stash..." -FG $C
+$procs = "chrome","msedge","brave","firefox","opera","Discord","WhatsApp","Telegram","explorer"
+Stop-Process -Name $procs -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
 
-Start-Process -FilePath $SDEL -ArgumentList "-accepteula" -NoNewWindow -Wait
-Write-Host "[✓] Void Engine: ONLINE ($($SDEL | Split-Path -Leaf))" -ForegroundColor Green
-Write-Host ""
-
-# =================== WARNING MESSAGE ===================
-Write-Host "===============================================================" -ForegroundColor Red
-Write-Host "                    [ FINAL WARNING ]" -ForegroundColor Red
-Write-Host "===============================================================" -ForegroundColor Red
-Write-Host "[!] YOU ARE ABOUT TO INITIATE GHOST PROTOCOL" -ForegroundColor Red
-Write-Host "[!] THIS ACTION IS:" -ForegroundColor Red
-Write-Host "[!]   - IRREVERSIBLE" -ForegroundColor Red
-Write-Host "[!]   - COMPREHENSIVE" -ForegroundColor Red
-Write-Host "[!]   - UNSAVABLE" -ForegroundColor Red
-Write-Host ""
-Write-Host "[~] The following will be VAPORIZED:" -ForegroundColor Yellow
-Write-Host "[~]   • Personal files & documents" -ForegroundColor Yellow
-Write-Host "[~]   • Browser histories & caches" -ForegroundColor Yellow
-Write-Host "[~]   • System logs & event trails" -ForegroundColor Yellow
-Write-Host "[~]   • Registry footprints" -ForegroundColor Yellow
-Write-Host "[~]   • Temporary data shadows" -ForegroundColor Yellow
-Write-Host "[~]   • Free space ghosts" -ForegroundColor Yellow
-Write-Host ""
-
-$confirm = Read-Host "[?] Type 'GHOST' to proceed, anything else to abort"
-if ($confirm -ne 'GHOST') {
-    Write-Host ""
-    Write-Host "[~] Operation ABORTED by user." -ForegroundColor Yellow
-    Write-Host "[~] System remains untouched." -ForegroundColor Yellow
-    Start-Sleep -Seconds 3
-    exit 0
-}
-
-Write-Host ""
-Write-Host "[~] Ghost Protocol: ENGAGED" -ForegroundColor Green
-Write-Host "[~] Initializing sterilization sequence..." -ForegroundColor Green
-Write-Host ""
-
-# =================== MODULE 1: PROCESS TERMINATION ===================
-Write-Host "=== MODULE 1: PROCESS TERMINATION ===" -ForegroundColor Cyan
-Write-Host "[1/10] Terminating witness processes..."
-Write-Host "[~] Silencing digital witnesses..."
-$processes = "chrome","msedge","brave","firefox","opera","Discord","DiscordCanary","DiscordPTB","WhatsApp","Telegram","explorer","OneDrive","outlook","steam","battle.net"
-$killCount = 0
-foreach ($proc in $processes) {
-    if (Get-Process -Name $proc -ErrorAction SilentlyContinue) {
-        Stop-Process -Name $proc -Force -ErrorAction Continue
-        $killCount++
-        Write-Host "[~] Process $proc : TERMINATED"
-    }
-}
-Write-Host "[✓] $killCount witnesses silenced" -ForegroundColor Green
-Write-Host ""
-
-# =================== MODULE 2: PERSONAL DATA ERASURE ===================
-Write-Host "=== MODULE 2: PERSONAL DATA ERASURE ===" -ForegroundColor Cyan
-Write-Host "[2/10] Vaporizing personal vaults..."
-Write-Host "[~] Zeroing personal data sectors..."
-
-function Wipe-Path($path, $name) {
-    if (Test-Path $path) {
-        Write-Host "[~] Shredding $name..."
-        & $SDEL -p 3 -s $path
-        Write-Host "[✓] $name: VAPORIZED" -ForegroundColor Green
-    } else {
-        Write-Host "[~] $name: NOT FOUND (already void)"
+$folders = "Downloads","Documents","Pictures","Videos","Desktop"
+foreach ($f in $folders) {
+    if (Test-Path "$env:USERPROFILE\$f") {
+        & $SDEL -p 3 -s -q "$env:USERPROFILE\$f\*"
     }
 }
 
-Wipe-Path "$env:USERPROFILE\Downloads\*" "Downloads"
-Wipe-Path "$env:USERPROFILE\Documents\*" "Documents"
-Wipe-Path "$env:USERPROFILE\Pictures\*" "Pictures"
-Wipe-Path "$env:USERPROFILE\Videos\*" "Videos"
-Wipe-Path "$env:USERPROFILE\Music\*" "Music"
-Wipe-Path "$env:USERPROFILE\Desktop\*" "Desktop"
-Write-Host "[✓] Personal vaults: PURGED" -ForegroundColor Green
-Write-Host ""
+# --- MODULE 5: BROWSER & COMMS OBLIVION ---
+Write-Host "[5/12] Scorching Browser & Comms History..." -FG $C
+$appData = @("$env:LocalAppData\Google\Chrome\User Data", "$env:LocalAppData\Microsoft\Edge\User Data", "$env:AppData\Telegram Desktop")
+foreach ($path in $appData) { if (Test-Path $path) { & $SDEL -p 2 -s -q "$path\*" } }
 
-# =================== MODULE 3: BROWSER DATA DESTRUCTION ===================
-Write-Host "=== MODULE 3: BROWSER DATA DESTRUCTION ===" -ForegroundColor Cyan
-Write-Host "[3/10] Incinerating browser footprints..."
-Write-Host "[~] Select purge intensity:"
-Write-Host "    [A] APOCALYPSE - Everything burns"
-Write-Host "    [S] SURGICAL  - Select targets"
-Write-Host "    [N] NEGATE    - Skip browser purge"
-Write-Host ""
-
-$purgeMode = Read-Host "Choice [A/S/N] (Default: A)"
-if ([string]::IsNullOrWhiteSpace($purgeMode)) { $purgeMode = 'A' }
-$purgeMode = $purgeMode.Substring(0,1).ToUpper()
-
-$DO_CHROME=$false;$DO_EDGE=$false;$DO_BRAVE=$false;$DO_FIREFOX=$false;$DO_OPERA=$false
-
-if ($purgeMode -eq 'N') {
-    Write-Host "[~] Browser purge: NEGATED" -ForegroundColor Yellow
-} else {
-    if ($purgeMode -eq 'A') {
-        Write-Host "[~] APOCALYPSE MODE: All browser data will burn" -ForegroundColor Red
-        $DO_CHROME=$true;$DO_EDGE=$true;$DO_BRAVE=$true;$DO_FIREFOX=$true;$DO_OPERA=$true
-    } elseif ($purgeMode -eq 'S') {
-        Write-Host "[~] SURGICAL STRIKE: Select targets to eliminate" -ForegroundColor Yellow
-        function Ask($q){ $r = Read-Host $q; if ([string]::IsNullOrWhiteSpace($r)) { return $true } else { return $r.Trim().ToUpper().StartsWith('Y') } }
-        if (Ask "[?] Chrome shadows? [Y/N]") { $DO_CHROME=$true }
-        if (Ask "[?] Edge fingerprints? [Y/N]") { $DO_EDGE=$true }
-        if (Ask "[?] Firefox ghosts? [Y/N]") { $DO_FIREFOX=$true }
-        if (Ask "[?] Brave trails? [Y/N]") { $DO_BRAVE=$true }
-        if (Ask "[?] Opera cache? [Y/N]") { $DO_OPERA=$true }
-    }
-
-    if ($DO_CHROME) { Wipe-Path "$env:LocalAppData\Google\Chrome\User Data\*" "Chrome Data" }
-    if ($DO_EDGE) { Wipe-Path "$env:LocalAppData\Microsoft\Edge\User Data\*" "Edge Data" }
-    if ($DO_BRAVE) { Wipe-Path "$env:LocalAppData\BraveSoftware\Brave-Browser\User Data\*" "Brave Data" }
-    if ($DO_FIREFOX) { 
-        Wipe-Path "$env:AppData\Mozilla\Firefox\Profiles\*" "Firefox Profiles" 
-        Wipe-Path "$env:LocalAppData\Mozilla\Firefox\Profiles\*" "Firefox Local Profiles"
-    }
-    if ($DO_OPERA) { 
-        Wipe-Path "$env:AppData\Opera Software\Opera Stable\*" "Opera Data" 
-        Wipe-Path "$env:LocalAppData\Opera Software\Opera Stable\*" "Opera Local Data"
-    }
-    Write-Host "[✓] Browser histories: INCINERATED" -ForegroundColor Green
-}
-Write-Host ""
-
-# =================== MODULE 4: COMMUNICATION APP CLEANUP ===================
-Write-Host "=== MODULE 4: COMMUNICATION APP CLEANUP ===" -ForegroundColor Cyan
-Write-Host "[4/10] Erasing communication trails..."
-Write-Host "[~] Scrambling digital conversations..."
-
-Wipe-Path "$env:AppData\discord\*" "Discord Cache"
-Wipe-Path "$env:AppData\discordcanary\*" "Discord Canary"
-Wipe-Path "$env:AppData\discordptb\*" "Discord PTB"
-Wipe-Path "$env:AppData\Telegram Desktop\*" "Telegram Session"
-Wipe-Path "$env:LocalAppData\Packages\5319275A.WhatsAppDesktop_*\*" "WhatsApp Desktop"
-Wipe-Path "$env:AppData\WhatsApp\*" "WhatsApp Roaming"
-
-Write-Host "[✓] Communication trails: SCRAMBLED" -ForegroundColor Green
-Write-Host ""
-
-# =================== MODULE 5: EVENT LOG ANNIHILATION ===================
-Write-Host "=== MODULE 5: EVENT LOG ANNIHILATION ===" -ForegroundColor Cyan
-Write-Host "[5/10] Flattening event logs..."
-Write-Host "[~] Rewriting digital history..."
-
-$logs = Get-WinEvent -ListLog * -Force -ErrorAction SilentlyContinue
-$logCount = 0
-foreach ($log in $logs) {
-    try {
-        wevtutil.exe cl $log.LogName
-        $logCount++
-        Write-Host -NoNewline "."
-    } catch {}
-}
-Write-Host ""
-Write-Host "[✓] $logCount event logs: FLATTENED" -ForegroundColor Green
-Write-Host ""
-
-# =================== MODULE 6: REGISTRY PURGE ===================
-Write-Host "=== MODULE 6: REGISTRY PURGE ===" -ForegroundColor Cyan
-Write-Host "[6/10] Purging registry echoes..."
-Write-Host "[~] Deleting digital breadcrumbs..."
-
-$regKeys = @(
-    "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist",
-    "Registry::HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU",
-    "Registry::HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags",
-    "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
-    "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths",
-    "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers",
-    "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default"
-)
-
-foreach ($key in $regKeys) {
-    if (Test-Path $key) {
-        Remove-Item $key -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "[~] Registry key purged: $key"
-    }
+# --- MODULE 6: TIMING GAP FILLER (THE NOISE) ---
+Write-Host "[6/12] Injecting Digital Noise (Timing Gap Filler)..." -FG $C
+# Pertama, bersihkan log asli
+$logs = Get-WinEvent -ListLog * -Force
+foreach ($l in $logs) { try { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($l.LogName) } catch {} }
+# Kedua, injeksi log palsu agar tidak terlihat 'kosong'
+for ($i=1; $i -le 20; $i++) {
+    Write-EventLog -LogName Application -Source "MsiInstaller" -EntryType Information -EventId 1033 -Message "Windows Installer reconfigured the product. Control Panel\Programs\Features. Transaction: $i."
 }
 
-# RDP Credentials
-Write-Host "[~] Removing stored RDP credentials..."
-$cmdkeyList = cmdkey /list
-foreach($line in $cmdkeyList){ 
-    $m=[regex]::Match($line,'TERMSRV\/[^\s]+'); 
-    if($m.Success){ 
-        cmdkey /delete:$($m.Value); 
-        Write-Host ">>> RDP credentials $($m.Value): DELETED." 
-    } 
-}
-
-Write-Host "[✓] Registry entries: PURGED" -ForegroundColor Green
-Write-Host ""
-
-# =================== MODULE 7: SHELL HISTORY CLEANSE ===================
-Write-Host "=== MODULE 7: SHELL HISTORY CLEANSE ===" -ForegroundColor Cyan
-Write-Host "[7/10] Muting command echoes..."
-Write-Host "[~] Erasing shell memory..."
-
-# PowerShell
+# --- MODULE 7: SHELL & RDP PURGE ---
+Write-Host "[7/12] Wiping Shell Memory & RDP Tracks..." -FG $C
+Clear-History
 if (Test-Path "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt") {
-    & $SDEL -p 3 "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
-    Write-Host "[~] PowerShell history: VAPORIZED"
+    & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
 }
+$rdpKeys = @("HKCU:\Software\Microsoft\Terminal Server Client\Servers", "HKCU:\Software\Microsoft\Terminal Server Client\Default")
+foreach ($k in $rdpKeys) { if (Test-Path $k) { Remove-Item $k -Recurse -Force } }
 
-# Bash (WSL)
-if (Test-Path "$env:USERPROFILE\.bash_history") {
-    & $SDEL -p 3 "$env:USERPROFILE\.bash_history"
-    Write-Host "[~] Bash history: VAPORIZED"
-}
-
-Write-Host "[✓] Shell histories: SILENCED" -ForegroundColor Green
-Write-Host ""
-
-# =================== MODULE 8: TEMPORARY DATA PURGE ===================
-Write-Host "=== MODULE 8: TEMPORARY DATA PURGE ===" -ForegroundColor Cyan
-Write-Host "[8/10] Draining temporary caches..."
-Write-Host "[~] Flushing system buffers..."
-
-Wipe-Path "$env:TEMP\*" "User Temp"
-Wipe-Path "$env:SystemRoot\Temp\*" "Windows Temp"
-Wipe-Path "$env:LocalAppData\Temp\*" "Local AppData Temp"
-Wipe-Path "$env:SystemRoot\Prefetch\*" "Prefetch"
-
-# Thumbnails
-if (Get-ChildItem "$env:LocalAppData\Microsoft\Windows\Explorer" -Filter "thumbcache_*.db" -ErrorAction SilentlyContinue) {
-    & $SDEL -p 3 "$env:LocalAppData\Microsoft\Windows\Explorer\thumbcache_*.db"
-    Write-Host "[~] Thumbnail caches: VAPORIZED"
-}
-
-Write-Host "[✓] Temp caches: DRAINED" -ForegroundColor Green
-Write-Host ""
-
-# =================== MODULE 9: RECYCLE & CLIPBOARD CLEAR ===================
-Write-Host "=== MODULE 9: RECYCLE & CLIPBOARD CLEAR ===" -ForegroundColor Cyan
-Write-Host "[9/10] Emptying recycle bins..."
-Write-Host "[~] Final pocket cleanup..."
-
-if (Test-Path "$env:SystemDrive\$Recycle.Bin") {
-    Write-Host "[~] Shredding recycle bin..."
-    & $SDEL -p 2 -s "$env:SystemDrive\$Recycle.Bin"
-    Write-Host "[✓] Recycle bin: INCINERATED" -ForegroundColor Green
-}
-
-Set-Clipboard -Value ""
-if (Test-Path "$env:LocalAppData\Microsoft\Windows\Clipboard\") {
-    & $SDEL -p 1 "$env:LocalAppData\Microsoft\Windows\Clipboard\*"
-    Write-Host "[✓] Clipboard: WIPED" -ForegroundColor Green
-}
-Write-Host ""
-
-# =================== MODULE 10: FREE SPACE SANITIZATION ===================
-Write-Host "=== MODULE 10: FREE SPACE SANITIZATION ===" -ForegroundColor Cyan
-Write-Host "[10/10] Sanitizing free space..."
-Write-Host "[~] This may take some time. Overwriting empty space with void data..."
-Write-Host ""
-
-Write-Host "[~] System drive ($env:SystemDrive): Initializing..."
+# --- MODULE 8: FREE SPACE SANITIZATION ---
+Write-Host "[8/12] Unleashing the Void: Free Space Sanitization..." -FG $C
 & $SDEL -z $env:SystemDrive
-Write-Host "[✓] System drive free space: SANITIZED" -ForegroundColor Green
 
-$fixed = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.Name -ne ("$env:SystemDrive" + "\") }
-if ($fixed.Count -gt 0) {
-    Write-Host ""
-    Write-Host "[~] Additional drives detected: $($fixed.Name -join ', ')"
-    $sanitizeMore = Read-Host "[?] Sanitize free space on additional drives? [Y/N] (Default: N)"
-    if ($sanitizeMore -match '^Y') {
-        foreach ($drive in $fixed) {
-            Write-Host "[~] Drive $($drive.Name): Sanitizing..."
-            & $SDEL -z $drive.Name.TrimEnd('\')
-            Write-Host "[✓] Drive $($drive.Name) free space: CLEANSED" -ForegroundColor Green
-        }
-    } else {
-        Write-Host "[~] Additional drives: SKIPPED" -ForegroundColor Yellow
-    }
+# ===============================================================
+#  FINALIZATION
+# ===============================================================
+Write-Host "===============================================================" -FG $G
+Write-Host "   MISSION COMPLETE. YOU ARE NOW A GHOST." -FG $G
+Write-Host "===============================================================" -FG $G
+
+$choice = Read-Host "[1] Reboot & Vanish (Recommended) [2] Self-Destruct Script Only"
+if ($choice -eq '1') {
+    $scriptPath = $PSCommandPath
+    Start-Process cmd.exe -ArgumentList "/c timeout /t 5 && del `"$scriptPath`" && shutdown /r /t 0 /f" -WindowStyle Hidden
+    exit
+} else {
+    Start-Process explorer.exe
+    Remove-Item $PSCommandPath -Force
+    exit
 }
-Write-Host ""
-
-# =================== FINALIZATION ===================
-Write-Host "===============================================================" -ForegroundColor Green
-Write-Host "                    OPERATION COMPLETE" -ForegroundColor Green
-Write-Host "===============================================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "[✓] SYSTEM STERILIZATION: SUCCESSFUL" -ForegroundColor Green
-Write-Host "[✓] FORENSIC FOOTPRINT: VAPORIZED" -ForegroundColor Green
-Write-Host "[✓] DIGITAL GHOSTING: COMPLETE" -ForegroundColor Green
-Write-Host ""
-Write-Host "[!] Your system is now a digital ghost:" -ForegroundColor Green
-Write-Host "[!] • No personal traces remain" -ForegroundColor Green
-Write-Host "[!] • No browser histories exist" -ForegroundColor Green
-Write-Host "[!] • No system logs contain evidence" -ForegroundColor Green
-Write-Host "[!] • No registry echoes persist" -ForegroundColor Green
-Write-Host "[!] • No free space contains ghosts" -ForegroundColor Green
-Write-Host ""
-Write-Host "===============================================================" -ForegroundColor Green
-Write-Host "           GHOST-WALKER v$version - MISSION COMPLETE" -ForegroundColor Green
-Write-Host "===============================================================" -ForegroundColor Green
-Write-Host ""
-
-Start-Process explorer.exe
-Read-Host "Press Enter to exit..."

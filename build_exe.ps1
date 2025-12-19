@@ -24,7 +24,8 @@ class GhostWalker
 
         try
         {
-            File.WriteAllText(tempPath, scriptContent);
+            // Force UTF-8 with BOM (Byte Order Mark) so PowerShell 5.x detects encoding correctly
+            File.WriteAllText(tempPath, scriptContent, new UTF8Encoding(true));
 
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.FileName = "powershell.exe";
