@@ -82,22 +82,23 @@ Add-Content -Path "$env:windir\System32\drivers\etc\hosts" -Value "`n0.0.0.0 oca
 # --- MODULE 2: STATE INCONSISTENCY (DEEP CLEAN) ---
 Write-Host "[2/12] Nuking Deep Artifacts (Shimcache/Amcache)..." -FG $C
 # Shimcache & AppCompat
-Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache" -Recurse -Force
-Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppCompatFlags\Explorer" -Recurse -Force
+Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppCompatFlags\Explorer" -Recurse -Force -ErrorAction SilentlyContinue
 # BAM (Background Activity Moderator)
-Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\*" -Recurse -Force
+Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\*" -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- MODULE 3: MFT BURIAL (THE BURIER) ---
 Write-Host "[3/12] Burying the Evidence: MFT Overwrite Sequence..." -FG $C
 $targetDir = "$env:TEMP\void_fill"
-New-Item -ItemType Directory -Path $targetDir -Force
-for ($i=1; $i -le 3000; $i++) {
-    New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID"
+New-Item -ItemType Directory -Path $targetDir -Force -ErrorAction SilentlyContinue | Out-Null
+# Optimize: Reduce count, increase speed. 1000 files is enough to clutter MFT.
+for ($i=1; $i -le 1000; $i++) {
+    $null = New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID" -Force
 }
 if (Test-Path $SDEL) {
     & $SDEL -p 1 -q "$targetDir\*.tmp"
 }
-Remove-Item $targetDir -Recurse -Force
+Remove-Item $targetDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
 Write-Host "[4/12] Vaporizing Active Witnesses & Personal Stash..." -FG $C
@@ -105,27 +106,38 @@ $procs = "chrome","msedge","brave","firefox","opera","Discord","WhatsApp","Teleg
 Stop-Process -Name $procs -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
-# Get real folder paths (handling OneDrive/Redirection)
+# Helper function to get real paths from Registry (User Shell Folders)
+function Get-RealUserPath {
+    param($KeyName)
+    try {
+        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+        $val = (Get-ItemProperty -Path $regPath -Name $KeyName -ErrorAction SilentlyContinue).$KeyName
+        if ($val) {
+            return [System.Environment]::ExpandEnvironmentVariables($val)
+        }
+    } catch {}
+    return $null
+}
+
 $folders = @(
-    [Environment]::GetFolderPath('MyDocuments'),
-    [Environment]::GetFolderPath('MyPictures'),
-    [Environment]::GetFolderPath('MyVideos'),
-    [Environment]::GetFolderPath('Desktop'),
-    [Environment]::GetFolderPath('UserProfile') + "\Downloads" # Downloads often not in enum for older .NET
+    (Get-RealUserPath "Personal"),          # Documents
+    (Get-RealUserPath "My Pictures"),       # Pictures
+    (Get-RealUserPath "My Video"),          # Videos
+    (Get-RealUserPath "Desktop"),           # Desktop
+    (Get-RealUserPath "{374DE290-123F-4565-9164-39C4925E467B}"), # Downloads GUID
+    (Get-RealUserPath "My Music")           # Music
 )
 
-# Add Music if available
-$music = [Environment]::GetFolderPath('MyMusic')
-if ($music) { $folders += $music }
+# Filter out nulls and duplicates
+$folders = $folders | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
 
 foreach ($f in $folders) {
     if ($f -and (Test-Path $f)) {
-        # Safety: Don't wipe the entire UserProfile if path resolution fails
-        if ($f -eq $env:USERPROFILE) { continue }
+        # Safety: Don't wipe the entire UserProfile if path resolution fails or returns root
+        if ($f -eq $env:USERPROFILE -or $f -eq "C:\" -or $f -eq "C:\Users") { continue }
         
         Write-Host "[~] Shredding contents of: $f" -FG $Y
         # Use Get-ChildItem to safely pass paths to SDelete
-        # SDelete wildcard expansion can be tricky from PS, so we feed files directly or use simple wildcard
         $target = Join-Path $f "*"
         if (Test-Path $SDEL) {
             & $SDEL -p 3 -s -q $target
@@ -133,10 +145,35 @@ foreach ($f in $folders) {
     }
 }
 
-# --- MODULE 5: BROWSER & COMMS OBLIVION ---
-Write-Host "[5/12] Scorching Browser & Comms History..." -FG $C
-$appData = @("$env:LocalAppData\Google\Chrome\User Data", "$env:LocalAppData\Microsoft\Edge\User Data", "$env:AppData\Telegram Desktop")
-foreach ($path in $appData) { if (Test-Path $path) { if(Test-Path $SDEL) { & $SDEL -p 2 -s -q "$path\*" } } }
+# --- MODULE 5: BROWSER, COMMS & SYSTEM ARTIFACTS ---
+Write-Host "[5/12] Scorching Browser, Comms & System Artifacts..." -FG $C
+$appData = @(
+    "$env:LocalAppData\Google\Chrome\User Data",
+    "$env:LocalAppData\Microsoft\Edge\User Data",
+    "$env:AppData\Telegram Desktop",
+    "$env:TEMP",
+    "$env:WINDIR\Temp",
+    "$env:WINDIR\Prefetch"
+)
+
+# 1. Clear Clipboard
+Write-Host "[~] Vaporizing Clipboard..." -FG $Y
+Set-Clipboard $null -ErrorAction SilentlyContinue
+
+# 2. Clear Recycle Bin
+Write-Host "[~] Emptying Recycle Bin..." -FG $Y
+Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+
+# 3. Wipe Artifact Paths
+foreach ($path in $appData) {
+    if (Test-Path $path) {
+        Write-Host "[~] Wiping: $path" -FG $Y
+        if(Test-Path $SDEL) {
+             # Use specific params for Temp folders to avoid locking issues
+             & $SDEL -p 2 -s -q "$path\*" 2>$null
+        }
+    }
+}
 
 # --- MODULE 6: TIMING GAP FILLER (THE NOISE) ---
 Write-Host "[6/12] Injecting Digital Noise (Timing Gap Filler)..." -FG $C
@@ -161,6 +198,8 @@ foreach ($k in $rdpKeys) { if (Test-Path $k) { Remove-Item $k -Recurse -Force } 
 
 # --- MODULE 8: FREE SPACE SANITIZATION ---
 Write-Host "[8/12] Unleashing the Void: Free Space Sanitization..." -FG $C
+Write-Host "[!] Note: This cleans UNUSED space. Existing files are safe." -FG $Y
+Write-Host "[!] Warning: This process can take time. Press Ctrl+C if you need to abort early." -FG $Y
 if (Test-Path $SDEL) {
     & $SDEL -z $env:SystemDrive
 }
