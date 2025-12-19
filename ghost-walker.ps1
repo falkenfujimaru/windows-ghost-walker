@@ -89,8 +89,13 @@ if (Test-Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer
 if (Test-Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers") { Remove-Item "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers" -Recurse -Force; Write-Host ">>> RDP Servers: DELETED" }
 if (Test-Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default") { Remove-Item "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default" -Recurse -Force; Write-Host ">>> RDP Default: DELETED" }
 if (Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Terminal Server Client" -Name "UsernameHint" -ErrorAction SilentlyContinue) { Remove-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Terminal Server Client" -Name "UsernameHint" -Force; Write-Host ">>> RDP Hints: DELETED" }
-if (Test-Path "$env:USERPROFILE\Documents\Default.rdp") { Write-Host ">>> RDP file (Documents\Default.rdp): Erasing..."; & $SDEL -p 3 -q "$env:USERPROFILE\Documents\Default.rdp"; Write-Host ">>> RDP file (Documents\Default.rdp): VAPORIZED." }
-if (Test-Path "$env:USERPROFILE\Default.rdp") { Write-Host ">>> RDP file (Default.rdp): Erasing..."; & $SDEL -p 3 -q "$env:USERPROFILE\Default.rdp"; Write-Host ">>> RDP file (Default.rdp): VAPORIZED." }
+if (Test-Path "$env:USERPROFILE\Documents\Default.rdp") { Write-Host ">>> RDP file (Documents\Default.rdp): Erasing..."; Start-Process cmd -ArgumentList "/c attrib -s -h `"$env:USERPROFILE\Documents\Default.rdp`"" -NoNewWindow -Wait; & $SDEL -p 3 -q "$env:USERPROFILE\Documents\Default.rdp"; Write-Host ">>> RDP file (Documents\Default.rdp): VAPORIZED." }
+if (Test-Path "$env:USERPROFILE\Default.rdp") { Write-Host ">>> RDP file (Default.rdp): Erasing..."; Start-Process cmd -ArgumentList "/c attrib -s -h `"$env:USERPROFILE\Default.rdp`"" -NoNewWindow -Wait; & $SDEL -p 3 -q "$env:USERPROFILE\Default.rdp"; Write-Host ">>> RDP file (Default.rdp): VAPORIZED." }
+if (Test-Path "$env:LocalAppData\Microsoft\Terminal Server Client\Cache\") { Write-Host ">>> RDP bitmap cache: Erasing..."; & $SDEL -p 3 -s -q "$env:LocalAppData\Microsoft\Terminal Server Client\Cache\*"; Write-Host ">>> RDP bitmap cache: VAPORIZED." }
+Write-Host ">>> Removing stored RDP credentials..."
+$cmdkeyList = & cmdkey /list
+foreach($line in $cmdkeyList){ $m=[regex]::Match($line,'TERMSRV\/[^\s]+'); if($m.Success){ & cmdkey /delete:$($m.Value) | Out-Null; Write-Host ">>> RDP credentials $($m.Value): DELETED." } }
+if (Test-Path "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms") { & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms" }
 Write-Host "[>] Shell Silence: Muting the command echoes."
 if (Test-Path "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt") { & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" }
 Write-Host "[>] Shortcut Purge: Burning the Recent Files and Thumbnails."
@@ -108,6 +113,11 @@ if (Test-Path "$env:SystemRoot\SoftwareDistribution\Download\") { Write-Host ">>
 if (Test-Path "$env:SystemRoot\Logs\CBS\") { Write-Host ">>> CBS logs: Erasing..."; & $SDEL -p 1 -q "$env:SystemRoot\Logs\CBS\*"; Write-Host ">>> CBS logs: VAPORIZED." }
 if (Test-Path "$env:SystemRoot\Logs\WindowsUpdate\") { Write-Host ">>> Windows Update logs: Erasing..."; & $SDEL -p 1 -q "$env:SystemRoot\Logs\WindowsUpdate\*"; Write-Host ">>> Windows Update logs: VAPORIZED." }
 if (Test-Path "$env:ProgramData\USOShared\Logs\") { Write-Host ">>> USOShared logs: Erasing..."; & $SDEL -p 1 -q "$env:ProgramData\USOShared\Logs\*"; Write-Host ">>> USOShared logs: VAPORIZED." }
+Write-Host ">>> RDP Registry MRU: Purging..."
+if (Test-Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default") { Remove-Item "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default" -Recurse -Force }
+if (Test-Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers") { Remove-Item "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers" -Recurse -Force }
+New-Item -Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Servers" -Force | Out-Null
+New-Item -Path "Registry::HKCU\Software\Microsoft\Terminal Server Client\Default" -Force | Out-Null
 Write-Host "[>] Final Pockets: Emptying the Bin and Clipboard."
 Set-Clipboard -Value ""
 if (Test-Path "$env:LocalAppData\Microsoft\Windows\Clipboard\") { Write-Host ">>> Clipboard history: Erasing..."; & $SDEL -p 1 -q "$env:LocalAppData\Microsoft\Windows\Clipboard\*"; Write-Host ">>> Clipboard history: VAPORIZED." }

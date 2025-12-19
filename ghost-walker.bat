@@ -203,16 +203,37 @@ reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths" >
 reg query "HKCU\Software\Microsoft\Terminal Server Client\Servers" >nul 2>&1 && (reg delete "HKCU\Software\Microsoft\Terminal Server Client\Servers" /f & echo >>> RDP Servers: DELETED)
 reg query "HKCU\Software\Microsoft\Terminal Server Client\Default" >nul 2>&1 && (reg delete "HKCU\Software\Microsoft\Terminal Server Client\Default" /f & echo >>> RDP Default: DELETED)
 reg query "HKCU\Software\Microsoft\Terminal Server Client" /v UsernameHint >nul 2>&1 && (reg delete "HKCU\Software\Microsoft\Terminal Server Client" /v UsernameHint /f & echo >>> RDP Hints: DELETED)
+echo >>> RDP Registry MRU: Purging...
+reg delete "HKCU\Software\Microsoft\Terminal Server Client\Default" /va /f >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Terminal Server Client\Servers" /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Terminal Server Client\Servers" /f >nul 2>&1
 if exist "%USERPROFILE%\Documents\Default.rdp" (
   echo >>> RDP file (Documents\Default.rdp): Erasing...
+  attrib -s -h "%USERPROFILE%\Documents\Default.rdp" >nul 2>&1
   "%SDEL%" -p 3 -q "%USERPROFILE%\Documents\Default.rdp"
   echo >>> RDP file (Documents\Default.rdp): VAPORIZED.
 )
 if exist "%USERPROFILE%\Default.rdp" (
   echo >>> RDP file (Default.rdp): Erasing...
+  attrib -s -h "%USERPROFILE%\Default.rdp" >nul 2>&1
   "%SDEL%" -p 3 -q "%USERPROFILE%\Default.rdp"
   echo >>> RDP file (Default.rdp): VAPORIZED.
 )
+if exist "%LocalAppData%\Microsoft\Terminal Server Client\Cache\" (
+  echo >>> RDP bitmap cache: Erasing...
+  "%SDEL%" -p 3 -s -q "%LocalAppData%\Microsoft\Terminal Server Client\Cache\*"
+  echo >>> RDP bitmap cache: VAPORIZED.
+)
+echo >>> Removing stored RDP credentials...
+for /f "tokens=2 delims=:" %%H in ('cmdkey /list ^| findstr /I "TERMSRV/"') do (
+  set "TARGET=%%H"
+  set "TARGET=!TARGET: =!"
+  if defined TARGET cmdkey /delete:!TARGET! >nul 2>&1 & echo >>> RDP credentials !TARGET!: DELETED.
+)
+if exist "%AppData%\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms" (
+  "%SDEL%" -p 3 -q "%AppData%\Microsoft\Windows\Recent\AutomaticDestinations\1b4dd67f29cb1962.automaticDestinations-ms"
+)
+reg add "HKCU\Software\Microsoft\Terminal Server Client\Default" /f >nul 2>&1
 
 :: 7. CLEAR POWERSHELL & COMMAND HISTORY
 echo [>] Shell Silence: Muting the command echoes.
