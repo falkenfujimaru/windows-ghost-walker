@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-chcp 65001 >nul
+chcp 65001
 
 :: ===============================================================
 ::  PROJECT: GHOST-WALKER // VOID PROTOCOL v3.1
@@ -19,7 +19,7 @@ set "SDEL_EXE=sdelete64.exe"
 set "SCRIPT_DIR=%~dp0"
 
 :: --- 1. PRIVILEGE CHECK ---
-net session >nul 2>&1
+net session
 if not %errorlevel%==0 (
     echo [!] God-Mode permissions required.
     powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
@@ -54,13 +54,13 @@ if not exist "!SDEL!" (
     echo [✗] CRITICAL: SDelete failed to materialize. Operation aborted.
     pause & exit /b
 )
-"!SDEL!" -accepteula >nul 2>&1
+"!SDEL!" -accepteula
 
 :: --- 4. CONFIRMATION ---
 echo [!] WARNING: THIS ACTION IS IRREVERSIBLE.
 set /p CONFIRM="[?] Type 'GHOST' to proceed, anything else to abort: "
 if /i not "!CONFIRM!"=="GHOST" (
-    echo [~] Aborted. System safe. & timeout /t 3 >nul & exit /b
+    echo [~] Aborted. System safe. & timeout /t 3 & exit /b
 )
 
 :: ===============================================================
@@ -90,7 +90,7 @@ goto :COMPLETION
 echo [1/11] Vaporizing Active Witnesses...
 set "PLIST=chrome.exe msedge.exe brave.exe firefox.exe opera.exe Discord.exe WhatsApp.exe Telegram.exe explorer.exe"
 for %%P in (%PLIST%) do (
-    taskkill /F /IM %%P /T >nul 2>&1
+    taskkill /F /IM %%P /T
     if !errorlevel! equ 0 echo [~] %%P: TERMINATED
 )
 echo.
@@ -102,7 +102,7 @@ set "FOLDERS=Downloads Documents Pictures Videos Music Desktop"
 for %%F in (%FOLDERS%) do (
     if exist "%USERPROFILE%\%%F\" (
         echo [~] Shredding %%F...
-        "!SDEL!" -p 3 -s -q "%USERPROFILE%\%%F\*" >nul 2>&1
+        "!SDEL!" -p 3 -s -q "%USERPROFILE%\%%F\*"
         echo [✓] %%F: VAPORIZED
     )
 )
@@ -114,7 +114,7 @@ echo [3/11] Scorching Browser Footprints...
 set "B_PATHS="%LocalAppData%\Google\Chrome\User Data\*" "%LocalAppData%\Microsoft\Edge\User Data\*" "%LocalAppData%\BraveSoftware\Brave-Browser\User Data\*""
 for %%P in (%B_PATHS%) do (
     if exist %%P (
-        "!SDEL!" -p 3 -s -q %%P >nul 2>&1
+        "!SDEL!" -p 3 -s -q %%P
         echo [✓] Browser Path Cleansed: %%P
     )
 )
@@ -123,8 +123,8 @@ goto :eof
 
 :MODULE_COM_APPS
 echo [4/11] Scorching Comms History...
-if exist "%AppData%\Telegram Desktop\" "!SDEL!" -p 3 -s -q "%AppData%\Telegram Desktop\*" >nul 2>&1
-if exist "%AppData%\discord\" "!SDEL!" -p 3 -s -q "%AppData%\discord\*" >nul 2>&1
+if exist "%AppData%\Telegram Desktop\" "!SDEL!" -p 3 -s -q "%AppData%\Telegram Desktop\*"
+if exist "%AppData%\discord\" "!SDEL!" -p 3 -s -q "%AppData%\discord\*"
 echo [✓] Comms: SCRAMBLED
 echo.
 goto :eof
@@ -132,7 +132,7 @@ goto :eof
 :MODULE_EVENT_LOGS
 echo [5/11] Flattening Event Logs (Timeline Eraser)...
 for /F "tokens=*" %%G in ('wevtutil.exe el') do (
-    wevtutil.exe cl "%%G" >nul 2>&1
+    wevtutil.exe cl "%%G"
 )
 echo [✓] Event Logs: FLATTENED
 echo.
@@ -140,9 +140,9 @@ goto :eof
 
 :MODULE_REGISTRY
 echo [6/11] Purging Registry Echoes...
-reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist" /f >nul 2>&1
-reg delete "HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU" /f >nul 2>&1
-reg delete "HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags" /f >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist" /f
+reg delete "HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU" /f
+reg delete "HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags" /f
 echo [✓] Registry Trackers: PURGED
 echo.
 goto :eof
@@ -150,18 +150,18 @@ goto :eof
 :MODULE_SHELL_HISTORY
 echo [7/11] Wiping Shell Memory...
 if exist "%AppData%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" (
-    "!SDEL!" -p 3 -q "%AppData%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" >nul 2>&1
+    "!SDEL!" -p 3 -q "%AppData%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
 )
-doskey /reinstall >nul 2>&1
+doskey /reinstall
 echo [✓] Shell History: SILENCED
 echo.
 goto :eof
 
 :MODULE_TEMP_DATA
 echo [8/11] Draining System Buffers...
-"!SDEL!" -p 1 -q "%temp%\*" >nul 2>&1
-"!SDEL!" -p 1 -q "%systemroot%\Temp\*" >nul 2>&1
-"!SDEL!" -p 1 -q "%systemroot%\Prefetch\*" >nul 2>&1
+"!SDEL!" -p 1 -q "%temp%\*"
+"!SDEL!" -p 1 -q "%systemroot%\Temp\*"
+"!SDEL!" -p 1 -q "%systemroot%\Prefetch\*"
 echo [✓] Temp Caches: DRAINED
 echo.
 goto :eof
@@ -169,16 +169,16 @@ goto :eof
 :MODULE_RECYCLE_CLIPBOARD
 echo [9/11] Final Pocket Cleanup...
 echo off | clip
-"!SDEL!" -p 3 -s -q "$Recycle.Bin" >nul 2>&1
+"!SDEL!" -p 3 -s -q "$Recycle.Bin"
 echo [✓] Recycle/Clipboard: WIPED
 echo.
 goto :eof
 
 :MODULE_MFT_FILLER
 echo [10/11] Burying MFT Evidence (Filenames Overwrite)...
-mkdir %temp%\void_fill >nul
+mkdir %temp%\void_fill
 for /L %%i in (1,1,1000) do (echo ghost > %temp%\void_fill\%%i.tmp)
-"!SDEL!" -p 1 -q %temp%\void_fill\*.tmp >nul 2>&1
+"!SDEL!" -p 1 -q %temp%\void_fill\*.tmp
 rmdir /s /q %temp%\void_fill
 echo [✓] MFT: OBSCURED
 echo.
@@ -186,7 +186,7 @@ goto :eof
 
 :MODULE_FREE_SPACE
 echo [11/11] Unleashing the Void (Free Space Sanitization)...
-"!SDEL!" -z %systemdrive% >nul 2>&1
+"!SDEL!" -z %systemdrive%
 echo [✓] Free Space: SANITIZED
 echo.
 goto :eof
@@ -200,6 +200,9 @@ echo   MISSION COMPLETE. YOU ARE NOW A GHOST.
 echo ===============================================================
 echo [1] REBOOT (Clear RAM)  [2] SHUTDOWN  [3] SELF-DESTRUCT & EXIT
 echo.
+echo Press any key to select...
+pause
+
 choice /c 123 /n /t 20 /d 3
 if %errorlevel% equ 3 goto :SELF_DESTRUCT
 if %errorlevel% equ 2 shutdown /s /t 5 /f
@@ -207,4 +210,6 @@ if %errorlevel% equ 1 shutdown /r /t 5 /f
 
 :SELF_DESTRUCT
 echo [~] Erasing script evidence...
+echo [~] Press any key to vanish...
+pause
 start /b "" cmd /c del "%~f0"&exit

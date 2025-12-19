@@ -4,7 +4,7 @@
 #  Counter-Forensic: Timing Gaps, State Sync, MFT Overwriting
 # ===============================================================
 
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Continue'
 $version = "3.5-PRO"
 
 function Show-Header {
@@ -38,14 +38,17 @@ if (!(Test-Path $SDEL)) {
     Expand-Archive -Path $zip -DestinationPath $PSScriptRoot -Force
     Remove-Item $zip -Force
 }
-& $SDEL -accepteula > $null 2>&1
+& $SDEL -accepteula
 
 Show-Header
 
 # --- FINAL WARNING ---
 Write-Host "[!] MISSION: Kill Traces, Bury MFT, Zero-Out Everything." -FG $Y
 $confirm = Read-Host "[?] Ready to disappear? Type 'GHOST' to execute"
-if ($confirm -ne 'GHOST') { exit }
+if ($confirm -ne 'GHOST') { 
+    Read-Host "Aborted. Press Enter to exit..."
+    exit 
+}
 
 # ===============================================================
 #  COUNTER-FORENSIC MODULES
@@ -67,9 +70,9 @@ Remove-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSetting
 # --- MODULE 3: MFT BURIAL (THE BURIER) ---
 Write-Host "[3/12] Burying the Evidence: MFT Overwrite Sequence..." -FG $C
 $targetDir = "$env:TEMP\void_fill"
-New-Item -ItemType Directory -Path $targetDir -Force > $null
+New-Item -ItemType Directory -Path $targetDir -Force
 for ($i=1; $i -le 3000; $i++) {
-    New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID" > $null
+    New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID"
 }
 & $SDEL -p 1 -q "$targetDir\*.tmp"
 Remove-Item $targetDir -Recurse -Force
@@ -77,7 +80,7 @@ Remove-Item $targetDir -Recurse -Force
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
 Write-Host "[4/12] Vaporizing Active Witnesses & Personal Stash..." -FG $C
 $procs = "chrome","msedge","brave","firefox","opera","Discord","WhatsApp","Telegram","explorer"
-Stop-Process -Name $procs -Force -ErrorAction SilentlyContinue
+Stop-Process -Name $procs -Force
 Start-Sleep -Seconds 2
 
 $folders = "Downloads","Documents","Pictures","Videos","Desktop"
@@ -130,5 +133,6 @@ if ($choice -eq '1') {
 } else {
     Start-Process explorer.exe
     Remove-Item $PSCommandPath -Force
+    Read-Host "Press Enter to exit..."
     exit
 }
