@@ -79,36 +79,69 @@ Write-Host "[1/12] Cutting the Cord: Microsoft Telemetry Blackout..." -FG $C
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0
 Add-Content -Path "$env:windir\System32\drivers\etc\hosts" -Value "`n0.0.0.0 oca.telemetry.microsoft.com`n0.0.0.0 telemetry.microsoft.com"
 
-# --- MODULE 2: STATE INCONSISTENCY (DEEP CLEAN) ---
-Write-Host "[2/12] Nuking Deep Artifacts (Shimcache/Amcache)..." -FG $C
+# --- HELPER FUNCTIONS ---
+function Force-Eradicate {
+    param(
+        [string]$Path,
+        [string]$Type = "File" # Options: File, Folder, Registry
+    )
 
-# Helper to safely remove registry keys
-function Safe-RegDelete {
-    param($Path)
-    if (Test-Path $Path) {
-        try {
-            # Try taking ownership and adding permissions before deleting (if needed)
-            $acl = Get-Acl $Path
-            $rule = New-Object System.Security.AccessControl.RegistryAccessRule ("Administrators","FullControl","Allow")
-            $acl.SetAccessRule($rule)
-            Set-Acl $Path $acl -ErrorAction SilentlyContinue
-            
+    if (-not (Test-Path $Path -ErrorAction SilentlyContinue)) { return }
+
+    try {
+        if ($Type -eq "Registry") {
+            # 1. Try PowerShell Delete
             Remove-Item -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
-        } catch {
-            Write-Host "[!] Access Denied or Locked: $Path (Skipping)" -FG $R
+            
+            # 2. Double Tap with reg.exe (CMD) if it still exists
+            if (Test-Path $Path -ErrorAction SilentlyContinue) {
+                # Convert PS Drive path (HKLM:\...) to CMD path (HKLM\...)
+                $regPath = $Path -replace "HKLM:\\", "HKLM\" -replace "HKCU:\\", "HKCU\"
+                Start-Process cmd.exe -ArgumentList "/c reg delete `"$regPath`" /f" -WindowStyle Hidden -Wait
+            }
         }
+        else {
+            # Files & Folders
+            # 1. SDelete (Forensic Wipe)
+            if ($SDEL -and (Test-Path $SDEL)) {
+                if ($Type -eq "Folder") { 
+                    $target = Join-Path $Path "*"
+                    & $SDEL -p 1 -s -q $target 2>$null 
+                }
+                else { 
+                    & $SDEL -p 1 -q $Path 2>$null 
+                }
+            }
+
+            # 2. PowerShell Force Delete
+            Remove-Item -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
+
+            # 3. CMD Fallback (The Sledgehammer)
+            if (Test-Path $Path -ErrorAction SilentlyContinue) {
+                if ($Type -eq "Folder") { 
+                    Start-Process cmd.exe -ArgumentList "/c rmdir /s /q `"$Path`"" -WindowStyle Hidden -Wait 
+                }
+                else { 
+                    Start-Process cmd.exe -ArgumentList "/c del /f /q `"$Path`"" -WindowStyle Hidden -Wait 
+                }
+            }
+        }
+    } catch {
+        # Suppress all errors to keep the console clean as requested
     }
 }
 
+# --- MODULE 2: STATE INCONSISTENCY (DEEP CLEAN) ---
+Write-Host "[2/12] Nuking Deep Artifacts (Shimcache/Amcache)..." -FG $C
+
 # Shimcache & AppCompat
-Safe-RegDelete "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache"
-Safe-RegDelete "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppCompatFlags\Explorer"
+Force-Eradicate "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache" "Registry"
+Force-Eradicate "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppCompatFlags\Explorer" "Registry"
 
 # BAM (Background Activity Moderator)
-# BAM is protected by System. We try, but suppress fatal errors.
 $bamPath = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings"
 if (Test-Path $bamPath) {
-    Get-ChildItem $bamPath | ForEach-Object { Safe-RegDelete $_.PSPath }
+    Get-ChildItem $bamPath | ForEach-Object { Force-Eradicate $_.PSPath "Registry" }
 }
 
 # --- MODULE 3: MFT BURIAL (THE BURIER) ---
@@ -119,10 +152,7 @@ New-Item -ItemType Directory -Path $targetDir -Force -ErrorAction SilentlyContin
 for ($i=1; $i -le 1000; $i++) {
     $null = New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID" -Force
 }
-if (Test-Path $SDEL) {
-    & $SDEL -p 1 -q "$targetDir\*.tmp"
-}
-Remove-Item $targetDir -Recurse -Force -ErrorAction SilentlyContinue
+Force-Eradicate $targetDir "Folder"
 
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
 Write-Host "[4/12] Vaporizing Active Witnesses & Personal Stash..." -FG $C
@@ -161,11 +191,7 @@ foreach ($f in $folders) {
         if ($f -eq $env:USERPROFILE -or $f -eq "C:\" -or $f -eq "C:\Users") { continue }
         
         Write-Host "[~] Shredding contents of: $f" -FG $Y
-        # Use Get-ChildItem to safely pass paths to SDelete
-        $target = Join-Path $f "*"
-        if (Test-Path $SDEL) {
-            & $SDEL -p 3 -s -q $target
-        }
+        Force-Eradicate $f "Folder"
     }
 }
 
@@ -192,10 +218,7 @@ Clear-RecycleBin -Force -ErrorAction SilentlyContinue
 foreach ($path in $appData) {
     if (Test-Path $path) {
         Write-Host "[~] Wiping: $path" -FG $Y
-        if(Test-Path $SDEL) {
-             # Use specific params for Temp folders to avoid locking issues
-             & $SDEL -p 2 -s -q "$path\*" 2>$null
-        }
+        Force-Eradicate $path "Folder"
     }
 }
 
@@ -213,16 +236,15 @@ for ($i=1; $i -le 20; $i++) {
 Write-Host "[7/12] Wiping Shell Memory & RDP Tracks..." -FG $C
 Clear-History
 if (Test-Path "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt") {
-    if (Test-Path $SDEL) {
-        & $SDEL -p 3 -q "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
-    }
+    Force-Eradicate "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "File"
 }
 $rdpKeys = @("HKCU:\Software\Microsoft\Terminal Server Client\Servers", "HKCU:\Software\Microsoft\Terminal Server Client\Default")
-foreach ($k in $rdpKeys) { if (Test-Path $k) { Remove-Item $k -Recurse -Force } }
+foreach ($k in $rdpKeys) { if (Test-Path $k) { Force-Eradicate $k "Registry" } }
 
 # --- MODULE 8: FREE SPACE SANITIZATION ---
 Write-Host "[8/12] Unleashing the Void: Free Space Sanitization..." -FG $C
-Write-Host "[!] Note: This cleans UNUSED space. Existing files are safe." -FG $Y
+Write-Host "[!] Info: Overwriting deleted data on Drive C: (Free Space Only)." -FG $Y
+Write-Host "[!] Info: Your active files (Windows, Documents, etc.) are SAFE and will NOT be deleted." -FG $Y
 Write-Host "[!] Warning: This process can take time. Press Ctrl+C if you need to abort early." -FG $Y
 if (Test-Path $SDEL) {
     & $SDEL -z $env:SystemDrive
