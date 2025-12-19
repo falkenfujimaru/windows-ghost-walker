@@ -98,11 +98,11 @@ goto :eof
 
 :MODULE_PERSONAL_DATA
 echo [2/11] Vaporizing Personal Stash...
-set "FOLDERS=Downloads Documents Pictures Videos Music Desktop"
-for %%F in (%FOLDERS%) do (
-    if exist "%USERPROFILE%\%%F\" (
+:: Use PowerShell to resolve real paths (handling OneDrive/Redirection)
+for /f "usebackq delims=" %%F in (`powershell -NoProfile -Command "foreach($n in 'Desktop','MyDocuments','MyPictures','MyVideos','MyMusic'){[Environment]::GetFolderPath($n)};$env:USERPROFILE+'\Downloads'"`) do (
+    if exist "%%F\" (
         echo [~] Shredding %%F...
-        "!SDEL!" -p 3 -s -q "%USERPROFILE%\%%F\*"
+        "!SDEL!" -p 3 -s -q "%%F\*"
         echo [✓] %%F: VAPORIZED
     )
 )
