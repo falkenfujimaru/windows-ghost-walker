@@ -156,9 +156,15 @@ All use `Force-Eradicate-Registry` for overwriting before deletion.
 - DNS Cache, Clipboard, Recycle Bin
 
 ### Module 5.5: Windows Defender & Network Cleanup (NEW)
+**ENHANCED** (Security Audit Update):
 - Windows Defender Quarantine clearing
 - Windows Defender scan history
+- **Windows Defender Exclusions Registry** (NEW) - Contains file paths that were excluded
+- **Windows Defender Network Inspection System logs** (NEW)
+- **Windows Defender LocalCopy** (NEW)
 - Windows Update logs
+- **Windows Update Download Cache** (NEW) - SoftwareDistribution\Download folder
+- **Windows Update History Database** (NEW) - DataStore.edb and WUDB files
 - Network connection history (registry)
 - Windows Firewall logs
 
@@ -196,8 +202,18 @@ All use `Force-Eradicate-Registry` for overwriting before deletion.
 - RDP connection history
 - ShellBags
 - **Windows Search Database** - NEW
+- **Windows Indexer Database** (Windows.edb files) - NEW
 - **MRU Lists** (Most Recently Used) - NEW
 - **CMD History** - NEW
+- **Windows Installer Cache** (MSI cache files) - NEW
+- **Windows Installer Logs** (MSI*.log files) - NEW
+- **Windows Installer Registry** (User-specific MSI data) - NEW
+- **System Thumbcache** (thumbcache_*.db in System32) - NEW
+- **Windows Credential Manager** (Saved passwords/Vault) - NEW
+- **Windows Clipboard History** (Windows 10+) - NEW
+- **Windows Task Scheduler History** (User-created tasks) - NEW
+- **Windows Print Spooler** (Print job history) - NEW
+- **Windows Store App Data** (User data from Store apps) - NEW
 
 ### Module 8: Free Space Sanitization
 - Primary: `sdelete -p 3 -c` (3 passes, DoD standard)
@@ -245,7 +261,32 @@ All use `Force-Eradicate-Registry` for overwriting before deletion.
 - Registry cleanup: Comprehensive registry key removal (HKCU + HKLM + recursive search)
 - **Result**: Both WhatsApp and WhatsAppBeta are completely wiped using identical methodology
 
-### D. Safety Improvements
+### D. Cloud Sync Folders Complete Wipe (NEW)
+**NEW Feature** (v4.6-ULTRA Update): Comprehensive cloud sync folder cleaning:
+- **Process Killing**: Stops all cloud sync processes:
+  - OneDrive, OneDriveSetup
+  - GoogleDriveFS, ProtonDrive
+  - Dropbox, iCloudDrive, BoxSync
+  - MEGASync, pCloud, Sync
+- **Cloud Sync Folders Wiped**:
+  - OneDrive, Google Drive, My Drive
+  - ProtonDrive, Proton Drive
+  - Dropbox, iCloudDrive, iCloud Drive
+  - Box, MEGA, pCloud Drive, pCloud, Sync
+- **AppData Cleanup**: Removes cloud sync configuration and cache:
+  - `AppData\Microsoft\OneDrive` (Roaming + Local)
+  - `AppData\Google\Drive` (Roaming + Local)
+  - `AppData\Proton\ProtonDrive` (Roaming + Local)
+  - `AppData\Dropbox`, `AppData\Apple Computer\iCloud`
+  - `AppData\Box`, `AppData\MEGA`, `AppData\pCloud`, `AppData\Sync`
+- **Wiping Process** (TURBO MODE):
+  1. Wipe all files recursively (uses Force-Eradicate - respects TURBO_MODE)
+  2. Wipe all subdirectories recursively (sorted descending)
+  3. Force delete the root cloud sync folder structure
+- **Additional Coverage**: Also checks Documents folder for cloud sync subfolders
+- **Result**: All cloud sync folders and app data completely wiped unrecoverably while maintaining turbo speed
+
+### E. Safety Improvements
 - Fixed hardcoded `C:\Users` → now uses `$env:SystemDrive\Users`
 - Path existence check before user enumeration
 - Enhanced error handling for path resolution failures
@@ -259,15 +300,22 @@ All use `Force-Eradicate-Registry` for overwriting before deletion.
 - Shimcache, Amcache, BAM, SRUM, UserAssist, TypedPaths, MUICache, RecentDocs
 - ShellBags, MRU Lists, RDP history, CMD history
 - Telegram authentication keys, WhatsApp registry keys
+- **Windows Defender Exclusions** (NEW) - Contains file paths that were excluded from scanning
+- **Windows Installer Registry** (User-specific MSI data) (NEW)
 - Network connection history, Bluetooth device registry
 
 ### File System Artifacts
 - Browser data (Chrome, Edge, Brave, Firefox, Opera)
 - Telegram data (Roaming + Local)
 - WhatsApp data (Roaming + Local + Beta + Packages)
-- Thumbnail cache, Windows Timeline, Jump Lists, LNK files
-- Windows Search database, Event Logs (with noise injection)
-- Windows Defender quarantine/history, Windows Update logs
+- **Cloud Sync Folders** (NEW): OneDrive, Google Drive, Proton Drive, Dropbox, iCloud, Box, MEGA, pCloud, Sync
+- **Cloud Sync App Data** (NEW): Configuration and cache for all cloud sync services
+- Thumbnail cache (user + system-wide), Windows Timeline, Jump Lists, LNK files
+- Windows Search database, **Windows Indexer Database (Windows.edb)** (NEW)
+- **Windows Installer Cache** (MSI files) (NEW)
+- **Windows Installer Logs** (MSI*.log) (NEW)
+- Event Logs (with noise injection)
+- Windows Defender quarantine/history/exclusions, **Windows Update Download Cache** (NEW), **Windows Update History Database** (NEW)
 - Windows Error Reporting logs
 - User folder contents (comprehensive wipe)
 
@@ -325,22 +373,114 @@ All use `Force-Eradicate-Registry` for overwriting before deletion.
 
 ---
 
-## 9. Future Considerations
+## 9. Security Audit Findings & Additional Forensic Artifacts
 
-### Potential Enhancements
-- **Registry Wipe**: Already implemented (v4.6) ✓
-- **Event Log Noise**: Already enhanced (v4.6) ✓
-- **Memory Artifacts**: Already implemented (v4.6) ✓
-- **Pagefile Clearing**: Already implemented (v4.6) ✓
-- **Advanced MFT Manipulation**: Could increase file count for more thorough MFT burial
+### Security Audit (Final Check)
+A comprehensive security audit was performed to identify any missed forensic artifacts or recovery vectors. The following additional artifacts were identified and implemented:
+
+#### Missing Artifacts (Now Implemented)
+1. **Windows Indexer Database (Windows.edb)**
+   - Location: `ProgramData\Microsoft\Search\Data\Applications\Windows`
+   - Contains indexed file metadata and paths
+   - **Status**: ✓ Now cleared
+
+2. **Windows Installer Cache (MSI Files)**
+   - Location: `Windows\Installer`
+   - Contains cached MSI package files
+   - **Status**: ✓ Now cleared (files only, folder structure preserved)
+
+3. **Windows Installer Logs (MSI*.log)**
+   - Locations: `Windows\Temp`, `TEMP`, `Windows\`
+   - Contains installation logs with file paths
+   - **Status**: ✓ Now cleared
+
+4. **Windows Installer Registry (User-Specific Data)**
+   - Location: `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData`
+   - Contains user-specific installer data (SIDs)
+   - **Status**: ✓ Now cleared
+
+5. **Windows Defender Exclusions Registry**
+   - Location: `HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions`
+   - Contains file paths that were excluded from scanning
+   - **Status**: ✓ Now cleared
+
+6. **Windows Update Download Cache**
+   - Location: `Windows\SoftwareDistribution\Download`
+   - Contains downloaded update files
+   - **Status**: ✓ Now cleared
+
+7. **Windows Update History Database**
+   - Location: `Windows\SoftwareDistribution\DataStore\DataStore.edb`
+   - Contains update history database
+   - **Status**: ✓ Now cleared (including WUDB files)
+
+8. **Windows Defender Network Inspection System Logs**
+   - Location: `ProgramData\Microsoft\Windows Defender\Network Inspection System`
+   - Contains network inspection logs
+   - **Status**: ✓ Now cleared
+
+9. **Windows Defender LocalCopy**
+   - Location: `ProgramData\Microsoft\Windows Defender\LocalCopy`
+   - Contains local copy of threat data
+   - **Status**: ✓ Now cleared
+
+10. **System-Wide Thumbcache**
+    - Location: `Windows\System32\thumbcache_*.db`
+    - Contains system-wide thumbnail cache
+    - **Status**: ✓ Now cleared
+
+11. **Windows Credential Manager (Windows Vault)**
+    - Locations: `AppData\Local\Microsoft\Credentials`, `AppData\Local\Microsoft\Vault`
+    - Contains saved passwords and credentials
+    - **Status**: ✓ Now cleared (including registry keys and cmdkey entries)
+
+12. **Windows Clipboard History (Windows 10+)**
+    - Location: `AppData\Local\Microsoft\Windows\Clipboard`
+    - Contains clipboard history data
+    - **Status**: ✓ Now cleared (including registry)
+
+13. **Windows Task Scheduler History**
+    - Location: `Windows\Tasks\*.job`
+    - Contains user-created scheduled tasks
+    - **Status**: ✓ Now cleared (system tasks preserved for stability)
+
+14. **Windows Print Spooler**
+    - Location: `Windows\System32\spool\PRINTERS`
+    - Contains print job history
+    - **Status**: ✓ Now cleared
+
+15. **Windows Store App Data**
+    - Location: `AppData\Local\Packages\<AppName>\LocalState`
+    - Contains user data from Windows Store apps
+    - **Status**: ✓ Now cleared (system apps preserved for stability)
+
+### Remaining Considerations (Low Priority)
+- **Registry Hive Defragmentation**: Could defragment registry hives after cleaning (may improve performance but not critical for forensics)
+- **Advanced MFT Manipulation**: Current 1000 files is sufficient; increasing would slow down execution
+- **BIOS/UEFI Settings**: Hardware-level settings (not accessible via software, requires physical access)
+
+### Forensic Recovery Vectors (Mitigated)
+- **Free Space Wipe**: Final free space sanitization ensures deleted data is overwritten
+- **Registry Overwriting**: Values overwritten before deletion makes recovery extremely difficult
+- **MFT Burial**: 1000 temporary files overwrite MFT records
+- **Event Log Noise**: Fake events injected to mask timing gaps
+- **Shadow Copy Deletion**: Volume Shadow Copies destroyed
+- **NTFS Journal Deletion**: USN Journal cleared
+
+---
+
+## 10. Future Considerations
+
+### Potential Enhancements (Low Priority)
 - **Registry Hive Defragmentation**: Could defragment registry hives after cleaning
+- **Advanced MFT Manipulation**: Could increase file count for more thorough MFT burial (current 1000 is sufficient)
 
 ---
 
 ## 10. Version History
 
-### v4.6-ULTRA (Current - Updated)
-- Enhanced anti-forensics (20+ new targets)
+### v4.6-ULTRA (Current - Final Security Audit Update)
+- Enhanced anti-forensics (30+ new targets after security audit)
 - Registry overwriting before deletion
 - Memory artifact purge (Pagefile/Hibernation)
 - Comprehensive user folder wipe (multi-pass with hidden/system file hunting)
@@ -348,8 +488,19 @@ All use `Force-Eradicate-Registry` for overwriting before deletion.
 - Telegram/WhatsApp complete wipe with registry cleanup
 - **WhatsAppBeta unified wiping process** (follows same 3-step process as WhatsApp)
 - **Enhanced non-standard user folder/file wiping** (4-pass process ensures complete removal)
+- **Cloud Sync Folders Complete Wipe** (OneDrive, Google Drive, Proton Drive, Dropbox, iCloud, Box, MEGA, pCloud, Sync)
+- **Cloud Sync App Data Cleanup** (Configuration and cache removal)
+- **Turbo Mode Maintained** (Fast deletion with final free space sanitization)
 - WiFi/Bluetooth clearing
 - Enhanced noise injection
+- **Security Audit Enhancements** (NEW):
+  - Windows Indexer Database (Windows.edb) clearing
+  - Windows Installer Cache & Logs cleanup
+  - Windows Installer Registry (user-specific data) clearing
+  - Windows Defender Exclusions Registry clearing
+  - Windows Update Download Cache & History Database clearing
+  - Windows Defender Network Inspection System logs
+  - System-wide Thumbcache clearing
 
 ### v4.5-ULTRA (Previous)
 - Turbo Mode implementation

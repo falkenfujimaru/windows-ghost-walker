@@ -431,7 +431,7 @@ Force-Eradicate $targetDir "Folder"
 
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
 Write-Host "[6/11] Vaporizing Active Witnesses & Personal Stash..." -FG $C
-$procs = "chrome", "msedge", "brave", "firefox", "opera", "Discord", "WhatsApp*", "Telegram", "TelegramDesktop", "Telegram.exe", "explorer", "msedgewebview2", "edge", "iexplore", "SearchApp", "SearchUI", "OneDrive", "RuntimeBroker"
+$procs = "chrome", "msedge", "brave", "firefox", "opera", "Discord", "WhatsApp*", "Telegram", "TelegramDesktop", "Telegram.exe", "explorer", "msedgewebview2", "edge", "iexplore", "SearchApp", "SearchUI", "OneDrive", "OneDriveSetup", "GoogleDriveFS", "ProtonDrive", "Dropbox", "iCloudDrive", "BoxSync", "MEGASync", "pCloud", "Sync", "RuntimeBroker"
 foreach ($p in $procs) {
     Stop-Process -Name $p -Force -ErrorAction SilentlyContinue
 }
@@ -555,6 +555,36 @@ foreach ($user in $targetUsers) {
                     Force-Eradicate $fullPath "Folder"
                 }
             }
+            
+            # 6. SPECIAL OPS: CLOUD SYNC FOLDERS COMPLETE WIPE
+            # Cloud sync folders (OneDrive, Google Drive, Proton Drive, etc.) need complete wipe
+            # Uses TURBO_MODE for speed while ensuring complete removal
+            $cloudSyncPatterns = @("OneDrive", "Google Drive", "My Drive", "ProtonDrive", "Proton Drive", "Dropbox", "iCloudDrive", "iCloud Drive", "Box", "MEGA", "pCloud", "Sync")
+            $isCloudSync = $false
+            foreach ($pattern in $cloudSyncPatterns) {
+                if ($fullPath -match $pattern) {
+                    $isCloudSync = $true
+                    break
+                }
+            }
+            
+            if ($isCloudSync) {
+                Write-Host "         [X] Cloud Sync Folder Wipe: Complete eradication ($sub)" -FG Red
+                if (Test-Path $fullPath) {
+                    # TURBO MODE: Fast deletion (final free space wipe will sanitize)
+                    # Step 1: Wipe all files recursively (uses Force-Eradicate which respects TURBO_MODE)
+                    Get-ChildItem -Path $fullPath -File -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        Force-Eradicate $_.FullName "File"
+                    }
+                    # Step 2: Wipe all subdirectories recursively (sorted descending for proper deletion order)
+                    Get-ChildItem -Path $fullPath -Directory -Recurse -Force -ErrorAction SilentlyContinue | 
+                        Sort-Object -Property FullName -Descending | ForEach-Object {
+                        Force-Eradicate $_.FullName "Folder"
+                    }
+                    # Step 3: Force delete the root cloud sync folder structure
+                    Force-Eradicate $fullPath "Folder"
+                }
+            }
         }
     }
     
@@ -562,10 +592,11 @@ foreach ($user in $targetUsers) {
     Write-Host "   [~] Comprehensive User Folder Content Wipe (Preserving Structure)..." -FG DarkGray
     
     # List of Windows standard folders to preserve (structure only, contents will be wiped)
+    # Note: Cloud sync folders (OneDrive, Google Drive, etc.) are NOT preserved - they are completely wiped
     $preserveFolders = @(
         "Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos", 
         "Favorites", "Links", "Saved Games", "Contacts", "Searches",
-        "AppData", "OneDrive"
+        "AppData"
     )
     
     # Wipe ALL files in root user directory (except system files)
@@ -650,6 +681,58 @@ foreach ($user in $targetUsers) {
     
     Write-Host "   [+] User Folder Contents: COMPLETELY WIPED UNRECOVERABLY (Structure Preserved)" -FG DarkGray
     
+    # --- CLOUD SYNC FOLDERS COMPREHENSIVE WIPE (TURBO MODE) ---
+    Write-Host "   [~] Comprehensive Cloud Sync Folders Wipe (Turbo Mode)..." -FG DarkGray
+    
+    # Common cloud sync folder locations in user directory
+    $cloudSyncFolders = @(
+        "OneDrive",
+        "Google Drive",
+        "My Drive",
+        "ProtonDrive",
+        "Proton Drive",
+        "Dropbox",
+        "iCloudDrive",
+        "iCloud Drive",
+        "Box",
+        "MEGA",
+        "pCloud Drive",
+        "pCloud",
+        "Sync"
+    )
+    
+    foreach ($cloudFolder in $cloudSyncFolders) {
+        $cloudPath = Join-Path $user.FullName $cloudFolder
+        if (Test-Path $cloudPath) {
+            Write-Host "      -> Wiping cloud sync folder: $cloudFolder" -FG DarkGray
+            # TURBO MODE: Fast deletion (final free space wipe will sanitize)
+            # Complete wipe: Files → Subdirectories → Root folder
+            Get-ChildItem -Path $cloudPath -File -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                Force-Eradicate $_.FullName "File"
+            }
+            Get-ChildItem -Path $cloudPath -Directory -Recurse -Force -ErrorAction SilentlyContinue | 
+                Sort-Object -Property FullName -Descending | ForEach-Object {
+                Force-Eradicate $_.FullName "Folder"
+            }
+            Force-Eradicate $cloudPath "Folder"
+        }
+    }
+    
+    # Also check for cloud sync folders in Documents (some services create subfolders there)
+    $documentsPath = Join-Path $user.FullName "Documents"
+    if (Test-Path $documentsPath) {
+        Get-ChildItem -Path $documentsPath -Directory -Force -ErrorAction SilentlyContinue | 
+            Where-Object { $cloudSyncFolders -contains $_.Name } | ForEach-Object {
+            Write-Host "      -> Wiping cloud sync folder in Documents: $($_.Name)" -FG DarkGray
+            Get-ChildItem -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                Force-Eradicate $_.FullName ($_.PSIsContainer ? "Folder" : "File")
+            }
+            Force-Eradicate $_.FullName "Folder"
+        }
+    }
+    
+    Write-Host "   [+] Cloud Sync Folders: COMPLETELY WIPED UNRECOVERABLY" -FG DarkGray
+    
     # DO NOT WIPE ROOT USER FILES (ntuser.dat etc) to prevent profile corruption before reset.
     
     # LNK File Hunt (Shortcuts with metadata) - User directories only
@@ -690,7 +773,27 @@ $appData = @(
     "$env:AppData\WhatsApp",
     "$env:LocalAppData\WhatsApp",
     "$env:AppData\WhatsAppBeta",
-    "$env:LocalAppData\WhatsAppBeta"
+    "$env:LocalAppData\WhatsAppBeta",
+    
+    # Cloud Sync App Data (Configuration & Cache)
+    "$env:AppData\Microsoft\OneDrive",
+    "$env:LocalAppData\Microsoft\OneDrive",
+    "$env:AppData\Google\Drive",
+    "$env:LocalAppData\Google\Drive",
+    "$env:AppData\Proton\ProtonDrive",
+    "$env:LocalAppData\Proton\ProtonDrive",
+    "$env:AppData\Dropbox",
+    "$env:LocalAppData\Dropbox",
+    "$env:AppData\Apple Computer\iCloud",
+    "$env:LocalAppData\Apple Computer\iCloud",
+    "$env:AppData\Box",
+    "$env:LocalAppData\Box",
+    "$env:AppData\MEGA",
+    "$env:LocalAppData\MEGA",
+    "$env:AppData\pCloud",
+    "$env:LocalAppData\pCloud",
+    "$env:AppData\Sync",
+    "$env:LocalAppData\Sync"
 )
 
 # Dynamic WhatsApp Package Detection (Current User)
@@ -712,9 +815,21 @@ $appData += @(
 Write-Host "[~] Flushing DNS Cache..." -FG $Y
 Clear-DnsClientCache -ErrorAction SilentlyContinue
 
-# 2. Clear Clipboard
+# 2. Clear Clipboard (including Windows 10+ Clipboard History)
 Write-Host "[~] Vaporizing Clipboard..." -FG $Y
 Set-Clipboard $null -ErrorAction SilentlyContinue
+# Windows 10+ Clipboard History
+$clipboardHistory = "$env:LocalAppData\Microsoft\Windows\Clipboard"
+if (Test-Path $clipboardHistory) {
+    Get-ChildItem -Path $clipboardHistory -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Force-Eradicate $_.FullName ($_.PSIsContainer ? "Folder" : "File")
+    }
+}
+# Clear clipboard history registry
+$clipboardRegPath = "HKCU:\Software\Microsoft\Clipboard"
+if (Test-Path $clipboardRegPath) {
+    Force-Eradicate-Registry $clipboardRegPath
+}
 
 # 3. Clear Recycle Bin
 Write-Host "[~] Emptying Recycle Bin..." -FG $Y
@@ -840,10 +955,12 @@ if (Test-Path $defenderQuarantine) {
     Write-Host "   [+] Defender Quarantine: CLEARED" -FG DarkGray
 }
 
-# Clear Windows Defender Scan History (but preserve exclusions for system stability)
+# Clear Windows Defender Scan History
 $defenderLogs = @(
     "$env:ProgramData\Microsoft\Windows Defender\Support",
-    "$env:ProgramData\Microsoft\Windows Defender\Scans"
+    "$env:ProgramData\Microsoft\Windows Defender\Scans",
+    "$env:ProgramData\Microsoft\Windows Defender\LocalCopy",
+    "$env:ProgramData\Microsoft\Windows Defender\Network Inspection System"
 )
 foreach ($defLog in $defenderLogs) {
     if (Test-Path $defLog) {
@@ -854,6 +971,20 @@ foreach ($defLog in $defenderLogs) {
 }
 Write-Host "   [+] Defender History: ERASED" -FG DarkGray
 
+# Clear Windows Defender Exclusions Registry (may contain file paths)
+$defenderExclusions = @(
+    "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions",
+    "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions"
+)
+foreach ($exclPath in $defenderExclusions) {
+    if (Test-Path $exclPath) {
+        Get-ChildItem $exclPath -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            Force-Eradicate-Registry $_.PSPath
+        }
+        Write-Host "   [+] Defender Exclusions: ERASED" -FG DarkGray
+    }
+}
+
 # Clear Windows Update Logs
 $updateLogs = "$env:WINDIR\Logs\WindowsUpdate"
 if (Test-Path $updateLogs) {
@@ -861,6 +992,26 @@ if (Test-Path $updateLogs) {
         Force-Eradicate $_.FullName "File"
     }
     Write-Host "   [+] Windows Update Logs: WIPED" -FG DarkGray
+}
+
+# Clear Windows Update Download Cache (contains downloaded update files)
+$updateDownloadCache = "$env:WINDIR\SoftwareDistribution\Download"
+if (Test-Path $updateDownloadCache) {
+    Get-ChildItem -Path $updateDownloadCache -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Force-Eradicate $_.FullName "File"
+    }
+    Write-Host "   [+] Windows Update Download Cache: WIPED" -FG DarkGray
+}
+
+# Clear Windows Update History Database
+$updateHistoryDB = "$env:WINDIR\SoftwareDistribution\DataStore\DataStore.edb"
+if (Test-Path $updateHistoryDB) {
+    Force-Eradicate $updateHistoryDB "File"
+    Write-Host "   [+] Windows Update History Database: ERASED" -FG DarkGray
+}
+# Also clear any WUDB files
+Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution" -Filter "*.wudb" -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    Force-Eradicate $_.FullName "File"
 }
 
 # Clear Network Connection History
@@ -994,6 +1145,24 @@ if (Test-Path $searchIndexPath) {
     Write-Host "   [+] Search Index: DESTROYED" -FG DarkGray
 }
 
+# Windows Indexer Database (Windows.edb files) - Comprehensive clearing
+$indexerPaths = @(
+    "$env:ProgramData\Microsoft\Search\Data\Applications\Windows",
+    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp"
+)
+foreach ($idxPath in $indexerPaths) {
+    if (Test-Path $idxPath) {
+        Get-ChildItem -Path $idxPath -Filter "Windows.edb" -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            Force-Eradicate $_.FullName "File"
+        }
+    }
+}
+# Also search for Windows.edb in ProgramData
+Get-ChildItem -Path "$env:ProgramData" -Filter "Windows.edb" -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    Force-Eradicate $_.FullName "File"
+}
+Write-Host "   [+] Windows Indexer Database: ERASED" -FG DarkGray
+
 # MRU (Most Recently Used) Lists
 $mruPaths = @(
     "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
@@ -1013,6 +1182,207 @@ if (Test-Path $cmdHistoryPath) {
     Remove-ItemProperty -Path $cmdHistoryPath -Name "CompletionChar" -ErrorAction SilentlyContinue
     Remove-ItemProperty -Path $cmdHistoryPath -Name "DefaultColor" -ErrorAction SilentlyContinue
     Write-Host "   [+] CMD History: CLEARED" -FG DarkGray
+}
+
+# --- WINDOWS CREDENTIAL MANAGER CLEANUP ---
+Write-Host "[~] Purging Windows Credential Manager (Saved Passwords)..." -FG $Y
+
+# Windows Credential Manager (Windows Vault)
+$credentialPaths = @(
+    "$env:USERPROFILE\AppData\Local\Microsoft\Credentials",
+    "$env:USERPROFILE\AppData\Roaming\Microsoft\Credentials",
+    "$env:USERPROFILE\AppData\Local\Microsoft\Vault"
+)
+foreach ($credPath in $credentialPaths) {
+    if (Test-Path $credPath) {
+        Get-ChildItem -Path $credPath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            Force-Eradicate $_.FullName ($_.PSIsContainer ? "Folder" : "File")
+        }
+    }
+}
+
+# Windows Credential Manager Registry
+$credRegPaths = @(
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Credentials",
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\5.0\Cache\Credentials"
+)
+foreach ($credRegPath in $credRegPaths) {
+    if (Test-Path $credRegPath) {
+        Get-ChildItem $credRegPath -ErrorAction SilentlyContinue | ForEach-Object {
+            Force-Eradicate-Registry $_.PSPath
+        }
+    }
+}
+
+# Windows Credential Locker (Modern Windows)
+$credLockerPath = "$env:USERPROFILE\AppData\Local\Microsoft\Credentials\*"
+Get-ChildItem -Path "$env:USERPROFILE\AppData\Local\Microsoft\Credentials" -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    Force-Eradicate $_.FullName "File"
+}
+
+# Clear saved credentials using cmdkey (if available)
+try {
+    $savedCreds = cmdkey /list 2>$null | Select-String "Target:"
+    if ($savedCreds) {
+        $savedCreds | ForEach-Object {
+            $target = ($_ -split "Target:")[1].Trim()
+            if ($target) {
+                cmdkey /delete:"$target" 2>$null | Out-Null
+            }
+        }
+    }
+} catch {}
+
+Write-Host "   [+] Windows Credentials: ERASED" -FG DarkGray
+
+# --- WINDOWS INSTALLER CACHE & LOGS CLEANUP ---
+Write-Host "[~] Purging Windows Installer Cache & Logs..." -FG $Y
+
+# Windows Installer Package Cache (MSI cache files)
+$installerCache = "$env:WINDIR\Installer"
+if (Test-Path $installerCache) {
+    # Clear MSI cache files (but preserve folder structure for system stability)
+    Get-ChildItem -Path $installerCache -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Force-Eradicate $_.FullName "File"
+    }
+    Write-Host "   [+] Windows Installer Cache: CLEARED" -FG DarkGray
+}
+
+# Windows Installer Logs (MSI*.log files)
+$installerLogPaths = @(
+    "$env:WINDIR\Temp",
+    "$env:TEMP",
+    "$env:WINDIR"
+)
+foreach ($logPath in $installerLogPaths) {
+    if (Test-Path $logPath) {
+        Get-ChildItem -Path $logPath -Filter "MSI*.log" -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            Force-Eradicate $_.FullName "File"
+        }
+    }
+}
+Write-Host "   [+] Windows Installer Logs: WIPED" -FG DarkGray
+
+# Windows Installer Registry (MSI cache registry keys - user-specific data)
+$installerRegPaths = @(
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Installer\UserData"
+)
+foreach ($instRegPath in $installerRegPaths) {
+    if (Test-Path $instRegPath) {
+        # Clear user-specific installer data (SIDs)
+        Get-ChildItem $instRegPath -ErrorAction SilentlyContinue | Where-Object { 
+            $_.PSChildName -like "S-1-5-21*"
+        } | ForEach-Object {
+            Force-Eradicate-Registry $_.PSPath
+        }
+    }
+}
+Write-Host "   [+] Windows Installer Registry: CLEARED" -FG DarkGray
+
+# Windows Thumbcache in System32 (system-wide thumbnails)
+Get-ChildItem -Path "$env:WINDIR\System32" -Filter "thumbcache_*.db" -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    Force-Eradicate $_.FullName "File"
+}
+Write-Host "   [+] System Thumbcache: ERASED" -FG DarkGray
+
+# --- WINDOWS INSTALLER CACHE & LOGS CLEANUP ---
+Write-Host "[~] Purging Windows Installer Cache & Logs..." -FG $Y
+
+# Windows Installer Package Cache (MSI cache files)
+$installerCache = "$env:WINDIR\Installer"
+if (Test-Path $installerCache) {
+    # Clear MSI cache files (but preserve folder structure for system stability)
+    Get-ChildItem -Path $installerCache -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Force-Eradicate $_.FullName "File"
+    }
+    Write-Host "   [+] Windows Installer Cache: CLEARED" -FG DarkGray
+}
+
+# Windows Installer Logs (MSI*.log files)
+$installerLogPaths = @(
+    "$env:WINDIR\Temp",
+    "$env:TEMP",
+    "$env:WINDIR"
+)
+foreach ($logPath in $installerLogPaths) {
+    if (Test-Path $logPath) {
+        Get-ChildItem -Path $logPath -Filter "MSI*.log" -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            Force-Eradicate $_.FullName "File"
+        }
+    }
+}
+Write-Host "   [+] Windows Installer Logs: WIPED" -FG DarkGray
+
+# Windows Installer Registry (MSI cache registry keys)
+$installerRegPaths = @(
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Installer"
+)
+foreach ($instRegPath in $installerRegPaths) {
+    if (Test-Path $instRegPath) {
+        # Clear user data and product information (but preserve system installer data)
+        $subKeys = @("UserData", "Folders")
+        foreach ($subKey in $subKeys) {
+            $fullRegPath = Join-Path $instRegPath $subKey
+            if (Test-Path $fullRegPath) {
+                Get-ChildItem $fullRegPath -Recurse -ErrorAction SilentlyContinue | Where-Object { 
+                    $_.PSChildName -like "*S-1-5-21*" -or $_.PSChildName -like "*Products*"
+                } | ForEach-Object {
+                    Force-Eradicate-Registry $_.PSPath
+                }
+            }
+        }
+    }
+}
+Write-Host "   [+] Windows Installer Registry: CLEARED" -FG DarkGray
+
+# Windows Thumbcache in System32 (system-wide thumbnails)
+$systemThumbcache = "$env:WINDIR\System32\thumbcache_*.db"
+Get-ChildItem -Path "$env:WINDIR\System32" -Filter "thumbcache_*.db" -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    Force-Eradicate $_.FullName "File"
+}
+Write-Host "   [+] System Thumbcache: ERASED" -FG DarkGray
+
+# --- WINDOWS TASK SCHEDULER & PRINT SPOOLER CLEANUP ---
+Write-Host "[~] Purging Task Scheduler & Print Spooler Artifacts..." -FG $Y
+
+# Windows Task Scheduler History (may contain executed task info)
+$taskSchedulerLog = "$env:WINDIR\Tasks"
+if (Test-Path $taskSchedulerLog) {
+    # Clear user-created tasks (preserve system tasks for stability)
+    Get-ChildItem -Path $taskSchedulerLog -Filter "*.job" -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        # Only delete non-system tasks
+        if ($_.Name -notlike "*Microsoft*" -and $_.Name -notlike "*Windows*") {
+            Force-Eradicate $_.FullName "File"
+        }
+    }
+    Write-Host "   [+] Task Scheduler History: CLEARED" -FG DarkGray
+}
+
+# Windows Print Spooler (may contain print job history)
+$printSpooler = "$env:WINDIR\System32\spool\PRINTERS"
+if (Test-Path $printSpooler) {
+    Get-ChildItem -Path $printSpooler -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Force-Eradicate $_.FullName "File"
+    }
+    Write-Host "   [+] Print Spooler: CLEARED" -FG DarkGray
+}
+
+# Windows Store App Data (may contain user data)
+$storeAppData = "$env:LocalAppData\Packages"
+if (Test-Path $storeAppData) {
+    # Clear user data from Store apps (but preserve app structure for system stability)
+    Get-ChildItem -Path $storeAppData -Directory -Force -ErrorAction SilentlyContinue | 
+        Where-Object { $_.Name -notlike "*Microsoft.Windows*" -and $_.Name -notlike "*Windows.*" } | ForEach-Object {
+        $appDataPath = Join-Path $_.FullName "LocalState"
+        if (Test-Path $appDataPath) {
+            Get-ChildItem -Path $appDataPath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                Force-Eradicate $_.FullName ($_.PSIsContainer ? "Folder" : "File")
+            }
+        }
+    }
+    Write-Host "   [+] Windows Store App Data: CLEARED" -FG DarkGray
 }
 
 # --- MODULE 8: FREE SPACE SANITIZATION ---
