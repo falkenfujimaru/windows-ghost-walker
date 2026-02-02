@@ -11,6 +11,28 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction S
 $ErrorActionPreference = 'Continue'
 $version = "4.6-ULTRA"
 
+# --- COLOR VARIABLES (Global Scope) ---
+# Define color variables globally so they're available throughout the script
+# Function to ensure color variables are always initialized
+function Initialize-ColorVariables {
+    if (-not $script:G) { $script:G = "Green" }
+    if (-not $script:C) { $script:C = "Cyan" }
+    if (-not $script:Y) { $script:Y = "Yellow" }
+    if (-not $script:R) { $script:R = "Red" }
+    if (-not $global:G) { $global:G = "Green" }
+    if (-not $global:C) { $global:C = "Cyan" }
+    if (-not $global:Y) { $global:Y = "Yellow" }
+    if (-not $global:R) { $global:R = "Red" }
+    # Set local variables
+    $G = "Green"
+    $C = "Cyan"
+    $Y = "Yellow"
+    $R = "Red"
+}
+
+# Initialize color variables
+Initialize-ColorVariables
+
 # --- PRIVILEGE CHECK (MUST BE FIRST) ---
 # Check if running as administrator
 $isAdmin = $false
@@ -94,7 +116,7 @@ if (-not $isAdmin) {
 
 function Show-Header {
     Clear-Host
-    $G = "Green"; $C = "Cyan"; $Y = "Yellow"; $R = "Red"
+    # Color variables are already defined in global scope
     Write-Host "=======================================================================================================" -ForegroundColor $G
     Write-Host "   PHANTOM-LEAP // GHOST-WALKER v$version " -ForegroundColor $G
     Write-Host "   [ STATUS: COUNTER-FORENSIC ACTIVE ]" -ForegroundColor $G
@@ -143,6 +165,9 @@ Stop-Service "wsearch" -Force -ErrorAction SilentlyContinue
 
 
 & $SDEL -accepteula
+
+# Ensure color variables are initialized before use
+Initialize-ColorVariables
 
 Show-Header
 
