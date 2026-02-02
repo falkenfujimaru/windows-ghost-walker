@@ -1410,27 +1410,161 @@ else {
 Write-Host "===============================================================" -FG $G
 Write-Host "   MISSION COMPLETE. YOU ARE NOW A GHOST." -FG $G
 Write-Host "===============================================================" -FG $G
+Write-Host ""
 
-$choice = Read-Host "[1] Reboot & Vanish [2] Shutdown & Vanish [3] Self-Destruct & Exit"
+# Display menu options
+Write-Host "   [1] Restart Only" -FG $C
+Write-Host "   [2] Shutdown" -FG $C
+Write-Host "   [3] Factory Reset" -FG $C
+Write-Host ""
+
+$choice = Read-Host "   Select an option (1-3)"
 
 Write-Host ""
 Write-Host "   Sayonara from Falken Fujimaru..." -FG $C
 Write-Host "   The shadows have reclaimed what was theirs." -FG $C
 Write-Host ""
 
+$scriptPath = $PSCommandPath
+
 if ($choice -eq '1') {
-    $scriptPath = $PSCommandPath
+    # Option 1: Restart Only
+    Write-Host "   [~] Preparing to restart..." -FG $Y
+    Write-Host "   [~] Script will be removed after restart." -FG $Y
     Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`" && shutdown /r /t 0 /f" -WindowStyle Hidden
     exit
 }
 elseif ($choice -eq '2') {
-    $scriptPath = $PSCommandPath
+    # Option 2: Shutdown
+    Write-Host "   [~] Preparing to shutdown..." -FG $Y
+    Write-Host "   [~] Script will be removed after shutdown." -FG $Y
     Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`" && shutdown /s /t 0 /f" -WindowStyle Hidden
     exit
 }
+elseif ($choice -eq '3') {
+    # Option 3: Factory Reset
+    Write-Host "   [!] FACTORY RESET SELECTED" -FG $R
+    Write-Host "   [!] This will reset Windows to factory settings." -FG $R
+    Write-Host ""
+    
+    # Ask user if they want to remove everything or keep files
+    Write-Host "   Factory Reset Options:" -FG $Y
+    Write-Host "   [1] Remove everything (Complete factory reset)" -FG $C
+    Write-Host "   [2] Keep my files (Reset settings only)" -FG $C
+    Write-Host ""
+    
+    $resetChoice = Read-Host "   Select factory reset option (1-2)"
+    
+    Write-Host ""
+    Write-Host "   [!] WARNING: Factory reset will begin after script removal." -FG $R
+    Write-Host "   [!] This process cannot be cancelled once started." -FG $R
+    Write-Host ""
+    
+    $finalConfirm = Read-Host "   Type 'RESET' to confirm factory reset, anything else to cancel"
+    
+    if ($finalConfirm -eq 'RESET') {
+        Write-Host "   [~] Initiating factory reset..." -FG $Y
+        Write-Host "   [~] Script will be removed, then factory reset will begin." -FG $Y
+        
+        # Remove script first
+        Start-Process cmd.exe -ArgumentList "/c timeout /t 2 && del `"$scriptPath`"" -WindowStyle Hidden
+        
+        # Wait a moment for script deletion
+        Start-Sleep -Seconds 2
+        
+        # Initiate factory reset based on user choice
+        if ($resetChoice -eq '1') {
+            # Remove everything - Complete factory reset
+            Write-Host "   [~] Starting complete factory reset (Remove everything)..." -FG $R
+            Write-Host "   [~] Windows will restart and begin factory reset process." -FG $R
+            Write-Host "   [~] All personal files and settings will be removed." -FG $R
+            
+            try {
+                # Method 1: Try systemreset command (Windows 10/11)
+                # This opens the Windows Reset UI with the selected option
+                $resetCmd = "systemreset.exe"
+                $resetArgs = "-factoryreset", "-cleanpc"
+                
+                # Check if systemreset.exe exists
+                if (Test-Path "$env:WINDIR\System32\systemreset.exe") {
+                    Write-Host "   [~] Launching Windows Reset interface..." -FG $Y
+                    Start-Process $resetCmd -ArgumentList $resetArgs -WindowStyle Normal
+                }
+                else {
+                    # Fallback: Use Windows Recovery Environment via reagentc
+                    Write-Host "   [~] Configuring Windows Recovery Environment..." -FG $Y
+                    # Enable Windows Recovery Environment
+                    Start-Process cmd.exe -ArgumentList "/c reagentc /enable" -WindowStyle Hidden -Wait
+                    # Create a script to trigger reset on next boot
+                    $resetScript = @"
+@echo off
+timeout /t 5 /nobreak >nul
+systemreset.exe -factoryreset -cleanpc
+"@
+                    $resetScriptPath = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\factory_reset.cmd"
+                    $resetScript | Out-File -FilePath $resetScriptPath -Encoding ASCII -Force
+                    Write-Host "   [~] Factory reset scheduled for next boot..." -FG $Y
+                    Start-Process cmd.exe -ArgumentList "/c shutdown /r /t 10 /f" -WindowStyle Hidden
+                }
+            }
+            catch {
+                Write-Host "   [!] Error initiating factory reset: $_" -FG $R
+                Write-Host "   [~] Please use Windows Settings > Recovery > Reset this PC manually." -FG $Y
+            }
+        }
+        else {
+            # Keep files - Reset settings only
+            Write-Host "   [~] Starting factory reset (Keep my files)..." -FG $Y
+            Write-Host "   [~] Windows will restart and reset settings while keeping your files." -FG $Y
+            
+            try {
+                # Method 1: Try systemreset command with keepfiles option
+                $resetCmd = "systemreset.exe"
+                $resetArgs = "-factoryreset", "-keepfiles"
+                
+                # Check if systemreset.exe exists
+                if (Test-Path "$env:WINDIR\System32\systemreset.exe") {
+                    Write-Host "   [~] Launching Windows Reset interface..." -FG $Y
+                    Start-Process $resetCmd -ArgumentList $resetArgs -WindowStyle Normal
+                }
+                else {
+                    # Fallback: Use Windows Recovery Environment
+                    Write-Host "   [~] Configuring Windows Recovery Environment..." -FG $Y
+                    Start-Process cmd.exe -ArgumentList "/c reagentc /enable" -WindowStyle Hidden -Wait
+                    $resetScript = @"
+@echo off
+timeout /t 5 /nobreak >nul
+systemreset.exe -factoryreset -keepfiles
+"@
+                    $resetScriptPath = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\factory_reset.cmd"
+                    $resetScript | Out-File -FilePath $resetScriptPath -Encoding ASCII -Force
+                    Write-Host "   [~] Factory reset scheduled for next boot..." -FG $Y
+                    Start-Process cmd.exe -ArgumentList "/c shutdown /r /t 10 /f" -WindowStyle Hidden
+                }
+            }
+            catch {
+                Write-Host "   [!] Error initiating factory reset: $_" -FG $R
+                Write-Host "   [~] Please use Windows Settings > Recovery > Reset this PC manually." -FG $Y
+            }
+        }
+        
+        # Give user time to see the message, then exit
+        Start-Sleep -Seconds 3
+        exit
+    }
+    else {
+        # User cancelled factory reset
+        Write-Host "   [~] Factory reset cancelled." -FG $Y
+        Write-Host "   [~] Script will self-destruct and exit." -FG $Y
+        Start-Process explorer.exe
+        Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`"" -WindowStyle Hidden
+        exit
+    }
+}
 else {
+    # Invalid choice - Default to self-destruct
+    Write-Host "   [~] Invalid choice. Self-destructing and exiting..." -FG $Y
     Start-Process explorer.exe
-    # Self-destruct via CMD to ensure clean removal after exit
-    Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$PSCommandPath`"" -WindowStyle Hidden
+    Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`"" -WindowStyle Hidden
     exit
 }
