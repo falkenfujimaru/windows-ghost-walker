@@ -5,7 +5,7 @@
 # ===============================================================
 
 $ErrorActionPreference = 'Continue'
-$version = "4.3-ULTRA"
+$version = "4.5-ULTRA"
 
 function Show-Header {
     Clear-Host
@@ -87,6 +87,10 @@ Write-Host "   [+] Telemetry Uplink: SEVERED" -FG DarkGray
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0
 Add-Content -Path "$env:windir\System32\drivers\etc\hosts" -Value "`n0.0.0.0 oca.telemetry.microsoft.com`n0.0.0.0 telemetry.microsoft.com"
 
+# --- CONFIGURATION ---
+$TURBO_MODE = $true  # Set to $false for slower, individual file shredding (Higher Security per file)
+$WIPE_PASSES = 1     # Passes for sdelete if Turbo Mode is OFF
+
 # --- HELPER FUNCTIONS ---
 function Force-Eradicate {
     param(
@@ -110,19 +114,29 @@ function Force-Eradicate {
         }
         else {
             # Files & Folders
-            # 1. SDelete (Forensic Wipe)
-            if ($SDEL -and (Test-Path $SDEL)) {
+            
+            # 1. SDelete (Forensic Wipe) OR Turbo Delete
+            if ($TURBO_MODE) {
+                # TURBO MODE: Skip SDelete for individual files to save massive time.
+                # Reliability comes from the FINAL FREE SPACE WIPE (Module 8).
+                # This just deletes the file entry logically.
+                Remove-Item -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            elseif ($SDEL -and (Test-Path $SDEL)) {
+                # SECURE MODE: Wipe individual files (Slow, but immediate destruction)
                 if ($Type -eq "Folder") { 
                     $target = Join-Path $Path "*"
-                    & $SDEL -p 1 -s -q $target 2>$null 
+                    & $SDEL -p $WIPE_PASSES -s -q $target 2>$null 
                 }
                 else { 
-                    & $SDEL -p 1 -q $Path 2>$null 
+                    & $SDEL -p $WIPE_PASSES -q $Path 2>$null 
                 }
             }
 
-            # 2. PowerShell Force Delete
-            Remove-Item -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
+            # 2. PowerShell Force Delete (Cleanup if SDelete missed or Turbo Mode)
+            if (Test-Path $Path -ErrorAction SilentlyContinue) {
+                Remove-Item -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
+            }
 
             # 3. CMD Fallback (The Sledgehammer)
             if (Test-Path $Path -ErrorAction SilentlyContinue) {
@@ -178,7 +192,7 @@ Force-Eradicate $targetDir "Folder"
 
 # --- MODULE 4: PROCESS & DATA VAPORIZATION ---
 Write-Host "[4/12] Vaporizing Active Witnesses & Personal Stash..." -FG $C
-$procs = "chrome", "msedge", "brave", "firefox", "opera", "Discord", "WhatsApp", "Telegram", "explorer", "msedgewebview2", "edge", "iexplore", "SearchApp", "SearchUI", "OneDrive"
+$procs = "chrome", "msedge", "brave", "firefox", "opera", "Discord", "WhatsApp*", "Telegram", "explorer", "msedgewebview2", "edge", "iexplore", "SearchApp", "SearchUI", "OneDrive", "RuntimeBroker"
 foreach ($p in $procs) {
     Stop-Process -Name $p -Force -ErrorAction SilentlyContinue
 }
@@ -186,6 +200,12 @@ Start-Sleep -Seconds 2
 
 # --- SURGICAL USER WIPE (SAFE MODE) ---
 Write-Host "[!][CRITICAL] STARTING SURGICAL DATA WIPE (CONTENT ONLY)..." -FG $R
+if ($TURBO_MODE) {
+    Write-Host "   [i] TURBO MODE: ENABLED (Fast Delete + Final Wipe)" -FG Yellow
+}
+else {
+    Write-Host "   [i] SECURE MODE: ENABLED (SDelete Per File)" -FG Yellow
+}
 Write-Host "   [i] Preserving Folder Structure for OS Stability" -FG DarkGray
 
 $usersDir = "C:\Users"
@@ -219,11 +239,22 @@ foreach ($user in $targetUsers) {
             # 1. Wipe Files inside (Keep Folder)
             $files = Get-ChildItem -Path $fullPath -File -Recurse -Force -ErrorAction SilentlyContinue
             foreach ($file in $files) {
-                & $SDEL -p 1 -q $file.FullName 2>$null
+                # Attempt Secure Wipe via Force-Eradicate (Handles Turbo Logic)
+                Force-Eradicate $file.FullName "File"
             }
              
             # 2. Remove Sub-directories (Keep Root Target)
             Get-ChildItem -Path $fullPath -Directory -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            
+            # 3. SPECIAL OPS: BROWSER PROFILE HUNT
+            # If we just wiped a 'User Data' folder, doubly ensure 'Default' and 'Profile' folders are dead.
+            if ($fullPath -match "User Data" -or $fullPath -match "Firefox\\Profiles") {
+                $profiles = Get-ChildItem -Path $fullPath -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "Default" -or $_.Name -match "Profile" -or $_.Name -match "Guest" -or $_.Name -match "System" }
+                foreach ($prof in $profiles) {
+                    Write-Host "         [X] Killing Profile: $($prof.Name)" -FG Red
+                    Force-Eradicate $prof.FullName "Folder"
+                }
+            }
         }
     }
     
@@ -329,8 +360,16 @@ Write-Host "[8/12] Unleashing the Void: Free Space Sanitization..." -FG $C
 Write-Host "[!] Info: Overwriting deleted data on Drive C: (Free Space Only)." -FG $Y
 Write-Host "[!] Info: Your active files (Windows, Documents, etc.) are SAFE and will NOT be deleted." -FG $Y
 Write-Host "[!] Warning: This process can take time. Press Ctrl+C if you need to abort early." -FG $Y
-if (Test-Path $SDEL) {
+
+# Ensure we use the best tool available
+if ($SDEL -and (Test-Path $SDEL)) {
+    Write-Host "[~] Using SDelete (Standard) for Free Space Wipe..." -FG Cyan
     & $SDEL -z $env:SystemDrive
+}
+else {
+    # Failover to CIPHER if needed, as per user interest
+    Write-Host "[~] SDelete not found, employing Windows CIPHER (DoD Standard)..." -FG Cyan
+    cipher /w:$env:SystemDrive
 }
 
 # ===============================================================
