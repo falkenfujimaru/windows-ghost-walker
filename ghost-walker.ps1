@@ -197,13 +197,43 @@ $WIPE_PASSES = 3      # DoD Standard (3 Passes). Gutmann is 35 (Overkill/Slow).
 function Force-Eradicate-Registry {
     param(
         [string]$Path,
-        [switch]$OverwriteValues = $true  # Overwrite registry values before deletion for anti-forensics
+        [switch]$OverwriteValues = $true,  # Overwrite registry values before deletion for anti-forensics
+        [int]$MaxDepth = 50,  # OPTIMIZATION: Prevent infinite recursion and limit depth
+        [int]$MaxProperties = 100  # OPTIMIZATION: Limit property processing to prevent hangs
     )
+
+    if ($MaxDepth -le 0) {
+        # Max depth reached - skip to prevent infinite loops
+        return
+    }
 
     if (-not (Test-Path $Path -ErrorAction SilentlyContinue)) { return }
 
     try {
-        # ANTI-FORENSIC: Overwrite registry values before deletion
+        # OPTIMIZATION: Get subkeys first (before processing values) to handle large trees efficiently
+        $subKeys = @()
+        try {
+            $subKeys = Get-ChildItem -Path $Path -ErrorAction SilentlyContinue | Where-Object { $_.PSIsContainer }
+        } catch {
+            # If enumeration fails, try direct deletion
+            Force-Eradicate -Path $Path -Type "Registry"
+            return
+        }
+        
+        # OPTIMIZATION: Process subkeys in reverse order (children before parents) for efficient deletion
+        if ($subKeys.Count -gt 0) {
+            $subKeys = $subKeys | Sort-Object -Property PSPath -Descending
+            foreach ($subKey in $subKeys) {
+                try {
+                    # Recursively process subkeys with depth limit
+                    Force-Eradicate-Registry -Path $subKey.PSPath -OverwriteValues:$OverwriteValues -MaxDepth ($MaxDepth - 1) -MaxProperties $MaxProperties
+                } catch {
+                    # Continue on individual subkey errors
+                }
+            }
+        }
+        
+        # ANTI-FORENSIC: Overwrite registry values before deletion (after subkeys are processed)
         if ($OverwriteValues) {
             try {
                 $regKey = Get-Item -Path $Path -ErrorAction SilentlyContinue
@@ -213,33 +243,36 @@ function Force-Eradicate-Registry {
                     if ($properties) {
                         $propertyNames = $properties.PSObject.Properties.Name | Where-Object { $_ -notin @('PSPath', 'PSParentPath', 'PSChildName', 'PSDrive', 'PSProvider') }
                         
+                        # OPTIMIZATION: Limit property processing to prevent hangs on keys with many values
+                        $propCount = 0
                         foreach ($propName in $propertyNames) {
+                            if ($propCount -ge $MaxProperties) { break }
                             try {
                                 # Overwrite with random garbage data
                                 $garbage = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 256 | ForEach-Object { [char]$_ })
                                 Set-ItemProperty -Path $Path -Name $propName -Value $garbage -ErrorAction SilentlyContinue
                                 # Overwrite again with zeros
                                 Set-ItemProperty -Path $Path -Name $propName -Value ([byte[]]@(0) * 256) -ErrorAction SilentlyContinue
+                                $propCount++
                             }
                             catch {}
                         }
                     }
-                    
-                    # Recursively overwrite subkeys
-                    $subKeys = Get-ChildItem -Path $Path -ErrorAction SilentlyContinue
-                    foreach ($subKey in $subKeys) {
-                        Force-Eradicate-Registry -Path $subKey.PSPath -OverwriteValues:$OverwriteValues
-                    }
                 }
             }
-            catch {}
+            catch {
+                # Continue if property overwriting fails
+            }
         }
         
         # Now proceed with standard deletion
         Force-Eradicate -Path $Path -Type "Registry"
     }
     catch {
-        # Suppress errors
+        # Suppress errors but try direct deletion as fallback
+        try {
+            Remove-Item -Path $Path -Recurse -Force -ErrorAction SilentlyContinue
+        } catch {}
     }
 }
 
@@ -506,8 +539,56 @@ Force-Eradicate-Registry "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explor
 Write-Host "   [+] TypedPaths: ERASED" -ForegroundColor DarkGray
 
 # MUICache - Multilingual User Interface cache
-Force-Eradicate-Registry "HKCU:\Software\Classes\Local Settings\MuiCache"
-Write-Host "   [+] MUICache: DESTROYED" -ForegroundColor DarkGray
+$muiCachePath = "HKCU:\Software\Classes\Local Settings\MuiCache"
+if (Test-Path $muiCachePath) {
+    Write-Host "   [~] Processing MUICache (this may take a moment)..." -ForegroundColor DarkGray
+    # OPTIMIZATION: Handle MUICache recursively with progress indicators
+    # MUICache can have many subkeys, so we need to process them efficiently
+    try {
+        $muiKeys = Get-ChildItem $muiCachePath -Recurse -ErrorAction SilentlyContinue
+        $muiCount = 0
+        $muiTotal = $muiKeys.Count
+        if ($muiTotal -gt 0) {
+            Write-Host "      -> Found $muiTotal MUICache keys, processing..." -ForegroundColor DarkGray
+            # OPTIMIZATION: Process in batches with progress updates
+            $batchSize = 50
+            for ($i = 0; $i -lt $muiTotal; $i += $batchSize) {
+                $batch = $muiKeys[$i..([Math]::Min($i + $batchSize - 1, $muiTotal - 1))]
+                # Process in reverse order (children before parents) for efficient deletion
+                $batch = $batch | Sort-Object -Property PSPath -Descending
+                foreach ($muiKey in $batch) {
+                    try {
+                        Force-Eradicate-Registry $muiKey.PSPath
+                    } catch {
+                        # Continue on individual key errors
+                    }
+                }
+                $muiCount += $batch.Count
+                if ($muiCount % 100 -eq 0 -or $muiCount -eq $muiTotal) {
+                    Write-Host "      -> Processed MUICache key $muiCount of $muiTotal..." -ForegroundColor DarkGray
+                }
+            }
+        }
+        # Final cleanup of root key
+        if (Test-Path $muiCachePath) {
+            Force-Eradicate-Registry $muiCachePath
+        }
+        Write-Host "   [+] MUICache: DESTROYED" -ForegroundColor DarkGray
+    } catch {
+        Write-Host "   [!] MUICache processing encountered an issue, attempting direct deletion..." -ForegroundColor Yellow
+        # Fallback: Direct deletion attempt
+        try {
+            Remove-Item -Path $muiCachePath -Recurse -Force -ErrorAction SilentlyContinue
+            $regPath = $muiCachePath -replace "HKCU:\\", "HKCU\"
+            Start-Process cmd.exe -ArgumentList "/c reg delete `"$regPath`" /f" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+            Write-Host "   [+] MUICache: DESTROYED (Fallback Method)" -ForegroundColor DarkGray
+        } catch {
+            Write-Host "   [+] MUICache: PROCESSED (Some keys may remain locked)" -ForegroundColor DarkGray
+        }
+    }
+} else {
+    Write-Host "   [+] MUICache: NOT FOUND (Already Clean)" -ForegroundColor DarkGray
+}
 
 # RecentDocs - Recent documents list
 Force-Eradicate-Registry "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs"
