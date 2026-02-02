@@ -276,6 +276,195 @@ function Force-Eradicate-Registry {
     }
 }
 
+# --- FAST PATH FILTER (WHITELIST/BLACKLIST) - OPTIMIZED FOR SPEED ---
+function Should-Skip-Path {
+    param([string]$Path, [string]$Type = "File")
+    
+    # Fast validation: empty or too short
+    if ([string]::IsNullOrWhiteSpace($Path) -or $Path.Length -lt 3) { return $true }
+    
+    # Normalize path (fast, no Resolve-Path overhead)
+    $normPath = $Path.TrimEnd('\').ToUpper()
+    
+    # FAST BLACKLIST CHECK: Critical system patterns (skip immediately, no attempt)
+    # Using simple string matching for speed
+    if ($normPath -like "*\SYSTEM32\*" -or
+        $normPath -like "*\SYSWOW64\*" -or
+        $normPath -like "*\WINSXS\*" -or
+        $normPath -like "*\BOOT\*" -or
+        $normPath -like "*\CONFIG\*" -or
+        $normPath -like "*\PROGRAM FILES\WINDOWS\*" -or
+        $normPath -like "*\PROGRAM FILES (X86)\WINDOWS\*" -or
+        $normPath -like "*\PROGRAM FILES\COMMON FILES\MICROSOFT SHARED\*" -or
+        $normPath -like "*\PROGRAM FILES (X86)\COMMON FILES\MICROSOFT SHARED\*") {
+        return $true  # SKIP - system path
+    }
+    
+    # FAST CHECK: Exact critical roots (skip immediately)
+    $sysRoot = $env:SystemRoot.ToUpper()
+    $progFiles = $env:ProgramFiles.ToUpper()
+    $progFiles86 = ${env:ProgramFiles(x86)}.ToUpper()
+    $sysDrive = $env:SystemDrive.ToUpper()
+    
+    if ($normPath -eq $sysDrive -or
+        $normPath -eq $sysRoot -or
+        $normPath -eq "$sysDrive\USERS" -or
+        $normPath -eq "$sysRoot\SYSTEM32" -or
+        $normPath -eq "$sysRoot\SYSWOW64" -or
+        $normPath -eq "$sysRoot\SYSTEM" -or
+        $normPath -eq "$sysRoot\WINSXS" -or
+        $normPath -eq "$sysRoot\BOOT" -or
+        $normPath -eq "$sysRoot\CONFIG" -or
+        $normPath -eq "$sysRoot\LOGS" -or
+        $normPath -eq "$sysRoot\SOFTWAREDISTRIBUTION" -or
+        $normPath -eq $progFiles -or
+        $normPath -eq $progFiles86) {
+        return $true  # SKIP - critical root
+    }
+    
+    # FAST CHECK: Program Files system apps (skip immediately)
+    if ($normPath.StartsWith("$progFiles\WINDOWS\") -or
+        $normPath.StartsWith("$progFiles\MICROSOFT\") -or
+        $normPath.StartsWith("$progFiles\COMMON FILES\") -or
+        $normPath.StartsWith("$progFiles86\WINDOWS\") -or
+        $normPath.StartsWith("$progFiles86\MICROSOFT\") -or
+        $normPath.StartsWith("$progFiles86\COMMON FILES\")) {
+        return $true  # SKIP - system app
+    }
+    
+    # FAST CHECK: System executables in system locations (skip immediately)
+    if ($Type -eq "File") {
+        $ext = [System.IO.Path]::GetExtension($normPath)
+        if ($ext -in @(".DLL", ".SYS", ".EXE")) {
+            if ($normPath.StartsWith("$sysRoot\") -or
+                $normPath.StartsWith("$progFiles\") -or
+                $normPath.StartsWith("$progFiles86\")) {
+                return $true  # SKIP - system executable
+            }
+        }
+    }
+    
+    # WHITELIST: Anti-Forensic Critical AppData (SPECIFIC TARGETS ONLY)
+    # Fokus hanya pada AppData yang mengandung digital trace penting untuk anti-forensic
+    # Skip AppData system/default yang tidak mengandung forensic traces
+    
+    # 1. BROWSER DATA (Critical - History, Cookies, Cache, Login Data)
+    if ($normPath -like "*\APPDATA\LOCAL\GOOGLE\CHROME\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MICROSOFT\EDGE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\BRAVESOFTWARE\BRAVE-BROWSER\*" -or
+        $normPath -like "*\APPDATA\ROAMING\MOZILLA\FIREFOX\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MOZILLA\FIREFOX\*" -or
+        $normPath -like "*\APPDATA\ROAMING\OPERA SOFTWARE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\OPERA SOFTWARE\*") {
+        return $false  # DON'T SKIP - critical browser forensic data
+    }
+    
+    # 2. MESSENGER DATA (Critical - Session, Auth Tokens, Chat History)
+    if ($normPath -like "*\APPDATA\ROAMING\TELEGRAM DESKTOP\*" -or
+        $normPath -like "*\APPDATA\LOCAL\TELEGRAM DESKTOP\*" -or
+        $normPath -like "*\APPDATA\ROAMING\WHATSAPP\*" -or
+        $normPath -like "*\APPDATA\LOCAL\WHATSAPP\*" -or
+        $normPath -like "*\APPDATA\ROAMING\WHATSAPPBETA\*" -or
+        $normPath -like "*\APPDATA\LOCAL\WHATSAPPBETA\*" -or
+        $normPath -like "*\APPDATA\ROAMING\DISCORD\*" -or
+        $normPath -like "*\APPDATA\LOCAL\DISCORD\*" -or
+        $normPath -like "*\APPDATA\LOCAL\PACKAGES\*WHATSAPP*\*" -or
+        $normPath -like "*\APPDATA\ROAMING\PACKAGES\*WHATSAPP*\*") {
+        return $false  # DON'T SKIP - critical messenger forensic data
+    }
+    
+    # 3. CLOUD SYNC APPDATA (Critical - Config, Cache, Sync Data)
+    if ($normPath -like "*\APPDATA\ROAMING\MICROSOFT\ONEDRIVE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MICROSOFT\ONEDRIVE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\GOOGLE\DRIVE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\GOOGLE\DRIVE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\PROTON\PROTONDRIVE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\PROTON\PROTONDRIVE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\DROPBOX\*" -or
+        $normPath -like "*\APPDATA\LOCAL\DROPBOX\*" -or
+        $normPath -like "*\APPDATA\ROAMING\APPLE COMPUTER\ICLOUD\*" -or
+        $normPath -like "*\APPDATA\LOCAL\APPLE COMPUTER\ICLOUD\*" -or
+        $normPath -like "*\APPDATA\ROAMING\BOX\*" -or
+        $normPath -like "*\APPDATA\LOCAL\BOX\*" -or
+        $normPath -like "*\APPDATA\ROAMING\MEGA\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MEGA\*" -or
+        $normPath -like "*\APPDATA\ROAMING\PCLOUD\*" -or
+        $normPath -like "*\APPDATA\LOCAL\PCLOUD\*" -or
+        $normPath -like "*\APPDATA\ROAMING\SYNC\*" -or
+        $normPath -like "*\APPDATA\LOCAL\SYNC\*") {
+        return $false  # DON'T SKIP - critical cloud sync forensic data
+    }
+    
+    # 4. FORENSIC ARTIFACTS (Critical - Recent, Temp, Cache, Timeline, Jump Lists)
+    if ($normPath -like "*\APPDATA\ROAMING\MICROSOFT\WINDOWS\RECENT\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MICROSOFT\WINDOWS\INETCACHE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MICROSOFT\WINDOWS\HISTORY\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MICROSOFT\WINDOWS\USRCLASS.DAT*" -or
+        $normPath -like "*\APPDATA\LOCAL\MICROSOFT\WINDOWS\ACTIVITIESCACHE.DB*" -or
+        $normPath -like "*\APPDATA\ROAMING\MICROSOFT\WINDOWS\RECENT\AUTOMATICDESTINATIONS\*" -or
+        $normPath -like "*\APPDATA\ROAMING\MICROSOFT\WINDOWS\RECENT\CUSTOMDESTINATIONS\*" -or
+        $normPath -like "*\APPDATA\LOCAL\TEMP\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MICROSOFT\WINDOWS\WEB CACHE\*") {
+        return $false  # DON'T SKIP - critical forensic artifacts
+    }
+    
+    # 5. USER FOLDERS (Desktop, Documents, Downloads, etc.)
+    if ($normPath -like "*\USERS\*\DESKTOP\*" -or
+        $normPath -like "*\USERS\*\DOCUMENTS\*" -or
+        $normPath -like "*\USERS\*\DOWNLOADS\*" -or
+        $normPath -like "*\USERS\*\PICTURES\*" -or
+        $normPath -like "*\USERS\*\MUSIC\*" -or
+        $normPath -like "*\USERS\*\VIDEOS\*" -or
+        $normPath -like "*\USERS\*\SAVED GAMES\*" -or
+        $normPath -like "*\USERS\*\FAVORITES\*" -or
+        $normPath -like "*\USERS\*\LINKS\*") {
+        return $false  # DON'T SKIP - user data folders
+    }
+    
+    # 6. TEMP & CACHE (System-wide)
+    if ($normPath -like "*\TEMP\*" -or
+        $normPath -like "*\PREFETCH\*" -or
+        $normPath -like "*\RECYCLER\*" -or
+        $normPath -like "*\$RECYCLE.BIN\*") {
+        return $false  # DON'T SKIP - temp/cache data
+    }
+    
+    # SKIP: AppData yang TIDAK penting untuk anti-forensic (tidak mengandung digital trace)
+    # Ini akan mempercepat proses tanpa mengurangi tujuan anti-forensic
+    if ($normPath -like "*\APPDATA\ROAMING\MICROSOFT\OFFICE\*" -and
+        $normPath -notlike "*\APPDATA\ROAMING\MICROSOFT\OFFICE\RECENT\*") {
+        return $true  # SKIP - Office AppData (kecuali Recent)
+    }
+    if ($normPath -like "*\APPDATA\LOCAL\PROGRAMS\*") {
+        return $true  # SKIP - Program binaries (tidak mengandung forensic traces)
+    }
+    if ($normPath -like "*\APPDATA\ROAMING\MICROSOFT\WINDOWS\START MENU\*" -or
+        $normPath -like "*\APPDATA\ROAMING\MICROSOFT\WINDOWS\SENDTO\*") {
+        return $true  # SKIP - Windows system AppData (preserved for stability)
+    }
+    if ($normPath -like "*\APPDATA\LOCAL\MICROSOFT\WINDOWS\INETCACHE\*" -and
+        $normPath -notlike "*\APPDATA\LOCAL\MICROSOFT\WINDOWS\INETCACHE\CONTENT.*\*") {
+        return $true  # SKIP - INetCache structure (hanya content yang penting)
+    }
+    
+    # If path starts with critical system path but not in whitelist, skip it
+    if ($normPath.StartsWith("$sysRoot\") -or
+        $normPath.StartsWith("$progFiles\") -or
+        $normPath.StartsWith("$progFiles86\")) {
+        # Check exceptions (temp, prefetch, etc.)
+        if ($normPath -like "*\TEMP\*" -or
+            $normPath -like "*\PREFETCH\*" -or
+            $normPath -like "*\LOGS\CBS\*" -or
+            $normPath -like "*\LOGS\DISM\*") {
+            return $false  # DON'T SKIP - safe exception
+        }
+        return $true  # SKIP - system path not in whitelist
+    }
+    
+    # Default: Don't skip (allow processing)
+    return $false
+}
+
 function Force-Eradicate {
     param(
         [string]$Path,
@@ -284,130 +473,24 @@ function Force-Eradicate {
 
     if (-not (Test-Path $Path -ErrorAction SilentlyContinue)) { return }
 
-    # --- SAFETY GUARDRAILS (ANTI-BRICK LOGIC) ---
-    # CRITICAL: This is the primary defense against OS destruction
+    # --- OPTIMIZED SAFETY GUARDRAILS (FAST SKIP) ---
+    # FAST PATH FILTER: Skip system paths immediately without attempting
+    if (Should-Skip-Path -Path $Path -Type $Type) {
+        return  # SKIP immediately - no attempt, no logging overhead
+    }
+    
+    # Normalize path (only if we get here)
     $AbsPath = $Path
     try { 
         $AbsPath = (Resolve-Path $Path -ErrorAction Stop).Path 
     } catch { 
-        # If path resolution fails, try to normalize manually
         if ($Path -match "^[A-Z]:\\") {
             $AbsPath = $Path
         } else {
-            # Relative path - block it if we can't resolve safely
-            Write-Host "   [GUARDRAIL] BLOCKED: Unresolvable path >> $Path" -ForegroundColor Red
-            return
+            return  # Skip unresolvable paths
         }
     }
-    $AbsPath = $AbsPath.TrimEnd('\') # Remove trailing slash for comparison
-    
-    # Additional safety: Block empty or suspiciously short paths
-    if ([string]::IsNullOrWhiteSpace($AbsPath) -or $AbsPath.Length -lt 3) {
-        Write-Host "   [GUARDRAIL] BLOCKED: Invalid path length >> $AbsPath" -ForegroundColor Red
-        return
-    }
-
-    # CRITICAL SYSTEM PATHS - NEVER DELETE THESE
-    $CriticalPaths = @(
-        "$env:SystemDrive",                      # C:
-        "$env:SystemRoot",                      # C:\Windows
-        "$env:ProgramFiles",                     # C:\Program Files
-        "${env:ProgramFiles(x86)}",              # C:\Program Files (x86)
-        "$env:SystemDrive\Users",                # C:\Users (Root)
-        "$env:SystemRoot\System32",              # C:\Windows\System32
-        "$env:SystemRoot\SysWOW64",              # C:\Windows\SysWOW64
-        "$env:SystemRoot\System",                # C:\Windows\System
-        "$env:ProgramData",                      # C:\ProgramData (System-wide app data)
-        "$env:SystemRoot\WinSxS",                # C:\Windows\WinSxS (Component Store)
-        "$env:SystemRoot\Boot",                  # C:\Windows\Boot
-        "$env:SystemRoot\Config",                # C:\Windows\Config
-        "$env:SystemRoot\Logs",                  # C:\Windows\Logs
-        "$env:SystemRoot\SoftwareDistribution"   # C:\Windows\SoftwareDistribution (Windows Update)
-    )
-
-    # ALLOWED EXCEPTIONS - Only these sub-paths of critical paths are safe to delete
-    $AllowedExceptions = @(
-        "$env:SystemRoot\Temp",                  # Windows Temp (safe to clear)
-        "$env:SystemRoot\Prefetch",              # Prefetch (safe to clear)
-        "$env:SystemRoot\Logs\CBS",              # Component Based Servicing logs
-        "$env:SystemRoot\Logs\DISM"              # Deployment Image Servicing logs
-    )
-    
-    # Additional protection: Block any path that contains critical Windows components
-    $CriticalSubstrings = @(
-        "\System32\",
-        "\SysWOW64\",
-        "\WinSxS\",
-        "\Boot\",
-        "\Config\",
-        "\Program Files\Windows",
-        "\Program Files (x86)\Windows",
-        "\Program Files\Common Files\Microsoft Shared",
-        "\Program Files (x86)\Common Files\Microsoft Shared"
-    )
-
-    # FIRST CHECK: Block critical substrings (most dangerous patterns)
-    foreach ($critSub in $CriticalSubstrings) {
-        if ($AbsPath -like "*$critSub*") {
-            Write-Host "   [GUARDRAIL] BLOCKED: Contains critical system component >> $AbsPath" -ForegroundColor Red
-            return
-        }
-    }
-    
-    # SECOND CHECK: Block exact matches and children of critical paths
-    foreach ($Crit in $CriticalPaths) {
-        # 1. Block Exact Match (e.g. trying to delete C:\Windows)
-        if ($AbsPath -eq $Crit) {
-            Write-Host "   [GUARDRAIL] BLOCKED: Attempt to delete CRITICAL ROOT >> $AbsPath" -ForegroundColor Red
-            return
-        }
-        
-        # 2. Block Children (e.g. C:\Windows\System32) UNLESS Exception
-        if ($AbsPath.StartsWith("$Crit\")) {
-            $IsAllowed = $false
-            foreach ($Ex in $AllowedExceptions) {
-                # Allow if it IS the exception or a CHILD of the exception
-                if ($AbsPath -eq $Ex -or $AbsPath.StartsWith("$Ex\")) { 
-                    $IsAllowed = $true
-                    break 
-                }
-            }
-            
-            if (-not $IsAllowed) {
-                Write-Host "   [GUARDRAIL] BLOCKED: Attempt to delete PROTECTED SYSTEM PATH >> $AbsPath" -ForegroundColor Red
-                return
-            }
-        }
-    }
-    
-    # THIRD CHECK: Additional safety for Program Files - block system apps
-    if ($AbsPath.StartsWith("$env:ProgramFiles\") -or $AbsPath.StartsWith("${env:ProgramFiles(x86)}\")) {
-        # Block deletion of Windows-related folders in Program Files
-        $blockedProgramFolders = @("Windows", "Microsoft", "Common Files")
-        $pathParts = $AbsPath -split "\\"
-        if ($pathParts.Count -ge 4) {
-            $programSubfolder = $pathParts[3]
-            if ($blockedProgramFolders -contains $programSubfolder) {
-                Write-Host "   [GUARDRAIL] BLOCKED: Attempt to delete Windows system app >> $AbsPath" -ForegroundColor Red
-                return
-            }
-        }
-    }
-    
-    # FOURTH CHECK: Block deletion of critical file types in system locations
-    if ($Type -eq "File") {
-        $criticalExtensions = @(".dll", ".sys", ".exe")
-        $fileExt = [System.IO.Path]::GetExtension($AbsPath).ToLower()
-        if ($criticalExtensions -contains $fileExt) {
-            # Only block if in system locations
-            if ($AbsPath.StartsWith("$env:SystemRoot\") -or 
-                $AbsPath.StartsWith("$env:ProgramFiles\") -or 
-                $AbsPath.StartsWith("${env:ProgramFiles(x86)}\")) {
-                Write-Host "   [GUARDRAIL] BLOCKED: Attempt to delete system executable >> $AbsPath" -ForegroundColor Red
-                return
-            }
-        }
-    }
+    $AbsPath = $AbsPath.TrimEnd('\')
     # ----------------------------------------------
 
     try {
