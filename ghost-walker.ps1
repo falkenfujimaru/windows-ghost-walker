@@ -100,6 +100,50 @@ function Force-Eradicate {
 
     if (-not (Test-Path $Path -ErrorAction SilentlyContinue)) { return }
 
+    # --- SAFETY GUARDRAILS (ANTI-BRICK LOGIC) ---
+    $AbsPath = $Path
+    try { $AbsPath = (Resolve-Path $Path).Path } catch {} # Normalize to absolute
+    $AbsPath = $AbsPath.TrimEnd('\') # Remove trailing slash for comparison
+
+    $CriticalPaths = @(
+        "$env:SystemDrive",              # C:
+        "$env:SystemRoot",               # C:\Windows
+        "$env:ProgramFiles",             # C:\Program Files
+        "${env:ProgramFiles(x86)}",      # C:\Program Files (x86)
+        "$env:SystemDrive\Users"         # C:\Users (Root)
+    )
+
+    $AllowedExceptions = @(
+        "$env:SystemRoot\Temp",
+        "$env:SystemRoot\Prefetch"
+    )
+
+    foreach ($Crit in $CriticalPaths) {
+        # 1. Block Exact Match (e.g. trying to delete C:\Windows)
+        if ($AbsPath -eq $Crit) {
+            Write-Host "   [GUARDRAIL] BLOCKED: Attempt to delete CRITICAL ROOT >> $AbsPath" -FG Red
+            return
+        }
+        
+        # 2. Block Children (e.g. C:\Windows\System32) UNLESS Exception
+        if ($AbsPath.StartsWith("$Crit\")) {
+            $IsAllowed = $false
+            foreach ($Ex in $AllowedExceptions) {
+                # Allow if it IS the exception or a CHILD of the exception
+                if ($AbsPath -eq $Ex -or $AbsPath.StartsWith("$Ex\")) { 
+                    $IsAllowed = $true
+                    break 
+                }
+            }
+            
+            if (-not $IsAllowed) {
+                Write-Host "   [GUARDRAIL] BLOCKED: Attempt to delete PROTECTED SYSTEM PATH >> $AbsPath" -FG Red
+                return
+            }
+        }
+    }
+    # ----------------------------------------------
+
     try {
         if ($Type -eq "Registry") {
             # 1. Try PowerShell Delete
@@ -226,10 +270,16 @@ foreach ($user in $targetUsers) {
         "AppData\Roaming\Opera Software\Opera Stable",
         "AppData\Roaming\Discord",
         "AppData\Roaming\Telegram Desktop",
-        "AppData\Local\WhatsApp",
-        "AppData\Local\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm", 
-        "AppData\Local\Packages\5319275A.WhatsAppBeta_cv1g1gvanyjgm"
+        "AppData\Local\WhatsApp"
     )
+
+    # Dynamic WhatsApp Package Detection (Beta & Stable)
+    $pkgPath = Join-Path $user.FullName "AppData\Local\Packages"
+    if (Test-Path $pkgPath) {
+        Get-ChildItem -Path $pkgPath -Filter "*WhatsApp*" -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            $subTargets += ("AppData\Local\Packages\" + $_.Name)
+        }
+    }
     
     foreach ($sub in $subTargets) {
         $fullPath = Join-Path $user.FullName $sub
@@ -278,10 +328,17 @@ $appData = @(
     "$env:AppData\discord",
     "$env:LocalAppData\Discord",
     "$env:AppData\WhatsApp",
-    "$env:LocalAppData\WhatsApp",
-    "$env:LocalAppData\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm", # WhatsApp Store
-    "$env:LocalAppData\Packages\5319275A.WhatsAppBeta_cv1g1gvanyjgm",    # WhatsApp Beta
+    "$env:LocalAppData\WhatsApp"
+)
 
+# Dynamic WhatsApp Package Detection (Current User)
+if (Test-Path "$env:LocalAppData\Packages") {
+    Get-ChildItem -Path "$env:LocalAppData\Packages" -Filter "*WhatsApp*" -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $appData += $_.FullName
+    }
+}
+
+$appData += @(
     # System
     "$env:TEMP",
     "$env:WINDIR\Temp",
