@@ -104,7 +104,7 @@ try {
     $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 catch {
-    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 if (-not $isAdmin) {
@@ -373,13 +373,12 @@ function Should-Skip-Path {
         return $false  # DON'T SKIP - critical messenger forensic data
     }
     
-    # 3. CLOUD SYNC APPDATA (Critical - Config, Cache, Sync Data)
+    # 3. CLOUD SYNC APPDATA (Critical - Config, Cache, Sync Data) - COMPREHENSIVE
+    # Major Cloud Services
     if ($normPath -like "*\APPDATA\ROAMING\MICROSOFT\ONEDRIVE\*" -or
         $normPath -like "*\APPDATA\LOCAL\MICROSOFT\ONEDRIVE\*" -or
         $normPath -like "*\APPDATA\ROAMING\GOOGLE\DRIVE\*" -or
         $normPath -like "*\APPDATA\LOCAL\GOOGLE\DRIVE\*" -or
-        $normPath -like "*\APPDATA\ROAMING\PROTON\PROTONDRIVE\*" -or
-        $normPath -like "*\APPDATA\LOCAL\PROTON\PROTONDRIVE\*" -or
         $normPath -like "*\APPDATA\ROAMING\DROPBOX\*" -or
         $normPath -like "*\APPDATA\LOCAL\DROPBOX\*" -or
         $normPath -like "*\APPDATA\ROAMING\APPLE COMPUTER\ICLOUD\*" -or
@@ -391,7 +390,48 @@ function Should-Skip-Path {
         $normPath -like "*\APPDATA\ROAMING\PCLOUD\*" -or
         $normPath -like "*\APPDATA\LOCAL\PCLOUD\*" -or
         $normPath -like "*\APPDATA\ROAMING\SYNC\*" -or
-        $normPath -like "*\APPDATA\LOCAL\SYNC\*") {
+        $normPath -like "*\APPDATA\LOCAL\SYNC\*" -or
+        # Privacy-Focused Cloud Services
+        $normPath -like "*\APPDATA\ROAMING\PROTON\PROTONDRIVE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\PROTON\PROTONDRIVE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\TRESORIT\*" -or
+        $normPath -like "*\APPDATA\LOCAL\TRESORIT\*" -or
+        $normPath -like "*\APPDATA\ROAMING\SPIDEROAK\*" -or
+        $normPath -like "*\APPDATA\LOCAL\SPIDEROAK\*" -or
+        $normPath -like "*\APPDATA\ROAMING\INTERNXT\*" -or
+        $normPath -like "*\APPDATA\LOCAL\INTERNXT\*" -or
+        # Regional/Alternative Cloud Services
+        $normPath -like "*\APPDATA\ROAMING\YANDEX\*" -or
+        $normPath -like "*\APPDATA\LOCAL\YANDEX\*" -or
+        $normPath -like "*\APPDATA\ROAMING\KOOFR\*" -or
+        $normPath -like "*\APPDATA\LOCAL\KOOFR\*" -or
+        $normPath -like "*\APPDATA\ROAMING\MEDIAFIRE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\MEDIAFIRE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\SUGARSYNC\*" -or
+        $normPath -like "*\APPDATA\LOCAL\SUGARSYNC\*" -or
+        $normPath -like "*\APPDATA\ROAMING\SEAFILE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\SEAFILE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\NEXTCLOUD\*" -or
+        $normPath -like "*\APPDATA\LOCAL\NEXTCLOUD\*" -or
+        $normPath -like "*\APPDATA\ROAMING\OWNCLOUD\*" -or
+        $normPath -like "*\APPDATA\LOCAL\OWNCLOUD\*" -or
+        $normPath -like "*\APPDATA\ROAMING\RESILIO\*" -or
+        $normPath -like "*\APPDATA\LOCAL\RESILIO\*" -or
+        $normPath -like "*\APPDATA\ROAMING\SYNCTHING\*" -or
+        $normPath -like "*\APPDATA\LOCAL\SYNCTHING\*" -or
+        # Enterprise/Backup Services
+        $normPath -like "*\APPDATA\ROAMING\EGNYTE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\EGNYTE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\SHAREFILE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\SHAREFILE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\IDRIVE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\IDRIVE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\BACKBLAZE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\BACKBLAZE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\CARBONITE\*" -or
+        $normPath -like "*\APPDATA\LOCAL\CARBONITE\*" -or
+        $normPath -like "*\APPDATA\ROAMING\ACRONIS\*" -or
+        $normPath -like "*\APPDATA\LOCAL\ACRONIS\*") {
         return $false  # DON'T SKIP - critical cloud sync forensic data
     }
     
@@ -906,7 +946,13 @@ foreach ($user in $targetUsers) {
             # 6. SPECIAL OPS: CLOUD SYNC FOLDERS COMPLETE WIPE
             # Cloud sync folders (OneDrive, Google Drive, Proton Drive, etc.) need complete wipe
             # Uses TURBO_MODE for speed while ensuring complete removal
-            $cloudSyncPatterns = @("OneDrive", "Google Drive", "My Drive", "ProtonDrive", "Proton Drive", "Dropbox", "iCloudDrive", "iCloud Drive", "Box", "MEGA", "pCloud", "Sync")
+            # Comprehensive cloud sync patterns (RESEARCHED - Complete Coverage)
+            $cloudSyncPatterns = @(
+                "OneDrive", "Google Drive", "My Drive", "Dropbox", "iCloudDrive", "iCloud Drive", "Box", "MEGA", "pCloud", "Sync",
+                "ProtonDrive", "Proton Drive", "Tresorit", "SpiderOak", "Internxt", "Yandex.Disk", "YandexDisk", "Koofr", "MediaFire",
+                "SugarSync", "Copy.com", "Hubic", "Jottacloud", "Seafile", "Nextcloud", "ownCloud", "Resilio", "Syncthing", "BTSync",
+                "Egnyte", "ShareFile", "Degoo", "iDrive", "Backblaze", "Carbonite", "CrashPlan", "Mozy", "Acronis", "Arq", "Duplicati"
+            )
             $isCloudSync = $false
             foreach ($pattern in $cloudSyncPatterns) {
                 if ($fullPath -match $pattern) {
@@ -939,12 +985,37 @@ foreach ($user in $targetUsers) {
     Write-Host "   [~] Fast User Folder Content Wipe (Preserving Structure)..." -ForegroundColor DarkGray
     
     # List of Windows standard folders to preserve (structure only, contents will be wiped)
+    # RESEARCHED: Complete list of Windows default user folders
     $preserveFolders = @(
         "Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos", 
         "Favorites", "Links", "Saved Games", "Contacts", "Searches",
-        "AppData"
+        "AppData", "3D Objects", "OneDrive"  # OneDrive structure preserved, contents wiped separately
     )
     $systemFiles = @("ntuser.dat", "ntuser.dat.LOG1", "ntuser.dat.LOG2", "ntuser.ini", "desktop.ini")
+    
+    # RESEARCHED: Common non-standard folders created by third-party apps (MUST WIPE)
+    # These are NOT Windows default folders and contain user data/digital traces
+    $knownNonStandardFolders = @(
+        # Development Tools
+        ".git", ".svn", ".hg", ".vscode", ".idea", ".vs",
+        # Application Data Folders
+        ".cache", ".config", ".local", ".npm", ".yarn", ".gradle", ".m2",
+        # Virtual Environments
+        "venv", "env", "virtualenv", ".venv", ".env",
+        # Application-Specific
+        "node_modules", "bower_components", ".nuget", ".dotnet",
+        # Backup/Archive Tools
+        ".backup", ".bak", ".old", ".tmp",
+        # Media/Content Tools
+        ".thumbnails", ".thumb", ".cache",
+        # Security/Privacy Tools
+        ".gnupg", ".ssh", ".keys",
+        # Cloud Sync (already handled separately, but catch any missed)
+        "GoogleDrive", "Dropbox", "OneDrive - Personal", "OneDrive - Work",
+        # Other Common Third-Party Folders
+        "Projects", "Workspace", "Work", "Personal", "My Files", "My Documents",
+        "Downloads", "Temp", "Temporary", "Cache", "Logs", "Data"
+    )
     
     # SPEED OPTIMIZATION: Process root files immediately (no full scan)
     Write-Host "   [~] Wiping root user files..." -ForegroundColor DarkGray
@@ -959,10 +1030,17 @@ foreach ($user in $targetUsers) {
         $folderName = $folder.Name
         $folderPath = $folder.FullName
         
+        # Check if it's a known non-standard folder (definitely wipe)
+        $isKnownNonStandard = $knownNonStandardFolders -contains $folderName -or
+                             $folderName.StartsWith(".") -or  # Hidden folders (usually non-standard)
+                             ($folderName -notin $preserveFolders -and 
+                              $folderName -notmatch "^(Desktop|Documents|Downloads|Pictures|Music|Videos|Favorites|Links|Saved Games|Contacts|Searches|AppData|3D Objects|OneDrive)$")
+        
         if ($preserveFolders -contains $folderName) {
             # Standard folder - wipe contents but preserve structure
             Write-Host "      -> Wiping contents of: $folderName" -ForegroundColor DarkGray
-            # TURBO: Process and delete immediately (streaming)
+            # TURBO: Process and delete immediately (streaming) - NO RECURSIVE SCAN FIRST
+            # Direct deletion without full scan for speed
             Get-ChildItem -Path $folderPath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
                 if ($_.PSIsContainer) { Force-Eradicate $_.FullName "Folder" } else { Force-Eradicate $_.FullName "File" }
             }
@@ -970,9 +1048,13 @@ foreach ($user in $targetUsers) {
             if (-not (Test-Path $folderPath)) {
                 New-Item -ItemType Directory -Path $folderPath -Force -ErrorAction SilentlyContinue | Out-Null
             }
-        } else {
-            # Non-standard folder - wipe completely (TURBO MODE)
+        } elseif ($isKnownNonStandard) {
+            # Known non-standard folder - wipe completely (TURBO MODE)
             Write-Host "      -> Wiping non-standard folder: $folderName" -ForegroundColor DarkGray
+            Force-Eradicate $folderPath "Folder"
+        } else {
+            # Unknown folder - assume non-standard and wipe (safer for anti-forensic)
+            Write-Host "      -> Wiping unknown folder (assumed non-standard): $folderName" -ForegroundColor DarkGray
             Force-Eradicate $folderPath "Folder"
         }
     }
@@ -982,21 +1064,79 @@ foreach ($user in $targetUsers) {
     # --- CLOUD SYNC FOLDERS COMPREHENSIVE WIPE (TURBO MODE) ---
     Write-Host "   [~] Comprehensive Cloud Sync Folders Wipe (Turbo Mode)..." -ForegroundColor DarkGray
     
-    # Common cloud sync folder locations in user directory
+    # Comprehensive cloud sync folder locations (RESEARCHED - Complete Coverage)
     $cloudSyncFolders = @(
+        # Major Cloud Services
         "OneDrive",
         "Google Drive",
         "My Drive",
-        "ProtonDrive",
-        "Proton Drive",
         "Dropbox",
         "iCloudDrive",
         "iCloud Drive",
         "Box",
+        "Box Sync",
         "MEGA",
+        "MEGAsync",
         "pCloud Drive",
         "pCloud",
-        "Sync"
+        "Sync",
+        "Sync.com",
+        # Privacy-Focused Cloud Services
+        "ProtonDrive",
+        "Proton Drive",
+        "Tresorit",
+        "SpiderOak",
+        "SpiderOakONE",
+        "Internxt Drive",
+        "Internxt",
+        # Regional/Alternative Cloud Services
+        "Yandex.Disk",
+        "YandexDisk",
+        "Yandex Disk",
+        "Koofr",
+        "MediaFire",
+        "SugarSync",
+        "Sugar Sync",
+        "Copy.com",
+        "Copy",
+        "Hubic",
+        "Jottacloud",
+        "JottaCloud",
+        "Seafile",
+        "SeaFile",
+        "Nextcloud",
+        "NextCloud",
+        "ownCloud",
+        "OwnCloud",
+        "Resilio Sync",
+        "ResilioSync",
+        "BTSync",
+        "BitTorrent Sync",
+        "Syncthing",
+        "SyncThing",
+        # Enterprise/Professional
+        "Egnyte",
+        "Egnyte Connect",
+        "ShareFile",
+        "Share File",
+        "Citrix ShareFile",
+        "Egnyte Desktop",
+        # Additional Cloud Services
+        "Degoo",
+        "Degoo Cloud",
+        "iDrive",
+        "IDrive",
+        "Backblaze",
+        "Carbonite",
+        "CrashPlan",
+        "CrashPlan Pro",
+        "Mozy",
+        "MozyHome",
+        "Acronis",
+        "Acronis True Image",
+        "Arq",
+        "Duplicati",
+        "Duplicacy"
     )
     
     foreach ($cloudFolder in $cloudSyncFolders) {
@@ -1073,13 +1213,12 @@ $appData = @(
     "$env:AppData\WhatsAppBeta",
     "$env:LocalAppData\WhatsAppBeta",
     
-    # Cloud Sync App Data (Configuration & Cache)
+    # Cloud Sync App Data (Configuration & Cache) - COMPREHENSIVE
+    # Major Cloud Services
     "$env:AppData\Microsoft\OneDrive",
     "$env:LocalAppData\Microsoft\OneDrive",
     "$env:AppData\Google\Drive",
     "$env:LocalAppData\Google\Drive",
-    "$env:AppData\Proton\ProtonDrive",
-    "$env:LocalAppData\Proton\ProtonDrive",
     "$env:AppData\Dropbox",
     "$env:LocalAppData\Dropbox",
     "$env:AppData\Apple Computer\iCloud",
@@ -1091,7 +1230,48 @@ $appData = @(
     "$env:AppData\pCloud",
     "$env:LocalAppData\pCloud",
     "$env:AppData\Sync",
-    "$env:LocalAppData\Sync"
+    "$env:LocalAppData\Sync",
+    # Privacy-Focused Cloud Services
+    "$env:AppData\Proton\ProtonDrive",
+    "$env:LocalAppData\Proton\ProtonDrive",
+    "$env:AppData\Tresorit",
+    "$env:LocalAppData\Tresorit",
+    "$env:AppData\SpiderOak",
+    "$env:LocalAppData\SpiderOak",
+    "$env:AppData\Internxt",
+    "$env:LocalAppData\Internxt",
+    # Regional/Alternative Cloud Services
+    "$env:AppData\Yandex",
+    "$env:LocalAppData\Yandex",
+    "$env:AppData\Koofr",
+    "$env:LocalAppData\Koofr",
+    "$env:AppData\MediaFire",
+    "$env:LocalAppData\MediaFire",
+    "$env:AppData\SugarSync",
+    "$env:LocalAppData\SugarSync",
+    "$env:AppData\Seafile",
+    "$env:LocalAppData\Seafile",
+    "$env:AppData\Nextcloud",
+    "$env:LocalAppData\Nextcloud",
+    "$env:AppData\ownCloud",
+    "$env:LocalAppData\ownCloud",
+    "$env:AppData\Resilio",
+    "$env:LocalAppData\Resilio",
+    "$env:AppData\Syncthing",
+    "$env:LocalAppData\Syncthing",
+    # Enterprise/Backup Services
+    "$env:AppData\Egnyte",
+    "$env:LocalAppData\Egnyte",
+    "$env:AppData\ShareFile",
+    "$env:LocalAppData\ShareFile",
+    "$env:AppData\iDrive",
+    "$env:LocalAppData\iDrive",
+    "$env:AppData\Backblaze",
+    "$env:LocalAppData\Backblaze",
+    "$env:AppData\Carbonite",
+    "$env:LocalAppData\Carbonite",
+    "$env:AppData\Acronis",
+    "$env:LocalAppData\Acronis"
 )
 
 # Dynamic WhatsApp Package Detection (Current User)
@@ -1183,37 +1363,34 @@ if (Test-Path $jumpListPath2) {
 }
 Write-Host "   [+] Jump Lists: ANNIHILATED" -ForegroundColor DarkGray
 
-# 7. Wipe Artifact Paths
+# 7. Wipe Artifact Paths - OPTIMIZED FOR SPEED
 $totalArtifacts = $appData.Count
 $artCounter = 0
+Write-Host "   [~] Processing $totalArtifacts artifact paths (streaming)..." -ForegroundColor DarkGray
+
 foreach ($path in $appData) {
     $artCounter++
-    Write-Progress -Activity "Scorching Artifacts" -Status "Wiping: $path" -PercentComplete (($artCounter / $totalArtifacts) * 100)
+    if ($artCounter % 10 -eq 0 -or $artCounter -eq $totalArtifacts) {
+        Write-Host "      -> Processing artifact $artCounter of $totalArtifacts: $(Split-Path $path -Leaf)" -ForegroundColor DarkGray
+    }
     
     if (Test-Path $path) {
-        Write-Host "   [+] Target Locked: $path" -ForegroundColor DarkGray
+        # SPEED OPTIMIZATION: Skip browser artifact hunting for non-browser paths
+        $isBrowserPath = $path -like "*Chrome*" -or $path -like "*Edge*" -or $path -like "*Firefox*" -or $path -like "*Brave*" -or $path -like "*Opera*"
         
-        # Special Hunter for Browsers: History, Cookies, Web Data
-        $browserFiles = @("History", "Cookies", "Web Data", "Login Data", "Top Sites", "Visited Links")
-        Write-Host "         [~] Hunting browser artifacts in $path..." -ForegroundColor DarkGray
-        $browserArtifacts = Get-ChildItem -Path $path -Include $browserFiles -Recurse -Force -ErrorAction SilentlyContinue
-        $baCount = 0
-        $baTotal = $browserArtifacts.Count
-        if ($baTotal -gt 0) {
-            Write-Host "         [~] Found $baTotal browser artifacts, wiping..." -ForegroundColor DarkGray
-            foreach ($ba in $browserArtifacts) {
-                $baCount++
-                if ($baCount % 50 -eq 0 -or $baCount -eq $baTotal) {
-                    Write-Host "            -> Wiping browser artifact $baCount of $baTotal..." -ForegroundColor DarkGray
-                }
-                Force-Eradicate $ba.FullName "File"
+        if ($isBrowserPath) {
+            # Special Hunter for Browsers: History, Cookies, Web Data (only for browser paths)
+            $browserFiles = @("History", "Cookies", "Web Data", "Login Data", "Top Sites", "Visited Links")
+            Get-ChildItem -Path $path -Include $browserFiles -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                Force-Eradicate $_.FullName "File"
             }
         }
-
+        
+        # TURBO MODE: Fast streaming deletion (no counting/collecting)
         Force-Eradicate $path "Folder"
     }
 }
-Write-Progress -Activity "Scorching Artifacts" -Completed
+Write-Host "   [+] Artifacts: SCORCHED" -ForegroundColor DarkGray
 
 # --- TELEGRAM & WHATSAPP REGISTRY CLEANUP (AUTHENTICATION KEYS) ---
 Write-Host "[~] Purging Telegram & WhatsApp Authentication Keys..." -ForegroundColor $Y
@@ -1736,7 +1913,7 @@ Write-Host "   Sayonara from Falken Fujimaru..." -ForegroundColor $C
 Write-Host "   The shadows have reclaimed what was theirs." -ForegroundColor $C
 Write-Host ""
 
-$scriptPath = $PSCommandPath
+    $scriptPath = $PSCommandPath
 
 if ($choice -eq '1') {
     # Option 1: Restart Only
@@ -1800,8 +1977,8 @@ elseif ($choice -eq '3') {
                 if (Test-Path "$env:WINDIR\System32\systemreset.exe") {
                     Write-Host "   [~] Launching Windows Reset interface..." -ForegroundColor $Y
                     Start-Process $resetCmd -ArgumentList $resetArgs -WindowStyle Normal
-                }
-                else {
+}
+else {
                     # Fallback: Use Windows Recovery Environment via reagentc
                     Write-Host "   [~] Configuring Windows Recovery Environment..." -ForegroundColor $Y
                     # Enable Windows Recovery Environment
@@ -1867,7 +2044,7 @@ systemreset.exe -factoryreset -keepfiles
         # User cancelled factory reset
         Write-Host "   [~] Factory reset cancelled." -ForegroundColor $Y
         Write-Host "   [~] Script will self-destruct and exit." -ForegroundColor $Y
-        Start-Process explorer.exe
+    Start-Process explorer.exe
         Start-Process cmd.exe -ArgumentList "/c timeout /t 3 && del `"$scriptPath`"" -WindowStyle Hidden
         exit
     }
