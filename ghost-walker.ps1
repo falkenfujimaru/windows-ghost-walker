@@ -761,34 +761,20 @@ foreach ($user in $targetUsers) {
         if (Test-Path $fullPath) {
             Write-Host "      -> Sanitizing Content: $sub" -ForegroundColor DarkGray
              
-            # OPTIMIZATION: Single scan for both files and directories
-            Write-Host "         [~] Scanning $sub (this may take a moment)..." -ForegroundColor DarkGray
-            $allSubItems = Get-ChildItem -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue
-            $files = $allSubItems | Where-Object { -not $_.PSIsContainer }
-            $dirs = $allSubItems | Where-Object { $_.PSIsContainer } | Sort-Object -Property FullName -Descending
+            # SPEED OPTIMIZATION: Process files and dirs immediately (streaming, no full scan first)
+            # TURBO MODE: Fast deletion - process as we find items
+            Write-Host "         [~] Wiping $sub (streaming)..." -ForegroundColor DarkGray
             
-            # 1. Wipe Files inside (Keep Folder)
-            $fileCount = 0
-            $fileTotal = $files.Count
-            if ($fileTotal -gt 0) {
-                Write-Host "         [~] Found $fileTotal files, wiping..." -ForegroundColor DarkGray
-                foreach ($file in $files) {
-                    $fileCount++
-                    if ($fileCount % 200 -eq 0 -or $fileCount -eq $fileTotal) {
-                        Write-Host "            -> Wiping file $fileCount of $fileTotal..." -ForegroundColor DarkGray
-                    }
-                    # Attempt Secure Wipe via Force-Eradicate (Handles Turbo Logic)
-                    Force-Eradicate $file.FullName "File"
-                }
-            } else {
-                Write-Host "         [~] No files found in $sub" -ForegroundColor DarkGray
+            # 1. Wipe Files inside (Keep Folder) - STREAMING PROCESSING
+            Get-ChildItem -Path $fullPath -File -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                # TURBO: Delete immediately as found (no counting/collecting)
+                Force-Eradicate $_.FullName "File"
             }
              
-            # 2. Remove Sub-directories (Keep Root Target) - OPTIMIZED: Already sorted descending
-            if ($dirs.Count -gt 0) {
-                Write-Host "         [~] Removing $($dirs.Count) subdirectories..." -ForegroundColor DarkGray
-                $dirs | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-            }
+            # 2. Remove Sub-directories (Keep Root Target) - STREAMING PROCESSING
+            Get-ChildItem -Path $fullPath -Directory -Recurse -Force -ErrorAction SilentlyContinue | 
+                Sort-Object -Property FullName -Descending | 
+                Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
             
             # 3. SPECIAL OPS: BROWSER PROFILE HUNT
             # If we just wiped a 'User Data' folder, doubly ensure 'Default' and 'Profile' folders are dead.
@@ -819,35 +805,15 @@ foreach ($user in $targetUsers) {
                 Write-Host "         [X] Complete WhatsApp/WhatsAppBeta Wipe: Ensuring all data cleared" -ForegroundColor Red
                 # Same process for both WhatsApp and WhatsAppBeta - complete folder deletion
                 if (Test-Path $fullPath) {
-                    # Step 1: Wipe all files recursively
-                    Write-Host "            [~] Step 1: Wiping files recursively..." -ForegroundColor DarkGray
-                    $waFiles = Get-ChildItem -Path $fullPath -File -Recurse -Force -ErrorAction SilentlyContinue
-                    $waFileCount = 0
-                    $waFileTotal = $waFiles.Count
-                    if ($waFileTotal -gt 0) {
-                        Write-Host "            [~] Found $waFileTotal files, processing..." -ForegroundColor DarkGray
-                        foreach ($waFile in $waFiles) {
-                            $waFileCount++
-                            if ($waFileCount % 100 -eq 0 -or $waFileCount -eq $waFileTotal) {
-                                Write-Host "               -> Wiping file $waFileCount of $waFileTotal..." -ForegroundColor DarkGray
-                            }
-                            Force-Eradicate $waFile.FullName "File"
-                        }
+                    # TURBO MODE: Fast streaming deletion (no counting/collecting)
+                    # Step 1: Wipe all files recursively - STREAMING
+                    Get-ChildItem -Path $fullPath -File -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        Force-Eradicate $_.FullName "File"
                     }
-                    # Step 2: Wipe all subdirectories recursively
-                    Write-Host "            [~] Step 2: Wiping subdirectories recursively..." -ForegroundColor DarkGray
-                    $waDirs = Get-ChildItem -Path $fullPath -Directory -Recurse -Force -ErrorAction SilentlyContinue | Sort-Object -Property FullName -Descending
-                    $waDirCount = 0
-                    $waDirTotal = $waDirs.Count
-                    if ($waDirTotal -gt 0) {
-                        Write-Host "            [~] Found $waDirTotal directories, processing..." -ForegroundColor DarkGray
-                        foreach ($waDir in $waDirs) {
-                            $waDirCount++
-                            if ($waDirCount % 50 -eq 0 -or $waDirCount -eq $waDirTotal) {
-                                Write-Host "               -> Wiping directory $waDirCount of $waDirTotal..." -ForegroundColor DarkGray
-                            }
-                            Force-Eradicate $waDir.FullName "Folder"
-                        }
+                    # Step 2: Wipe all subdirectories recursively - STREAMING
+                    Get-ChildItem -Path $fullPath -Directory -Recurse -Force -ErrorAction SilentlyContinue | 
+                        Sort-Object -Property FullName -Descending | ForEach-Object {
+                        Force-Eradicate $_.FullName "Folder"
                     }
                     # Step 3: Force delete the root folder structure (same as WhatsApp)
                     Force-Eradicate $fullPath "Folder"
@@ -869,36 +835,15 @@ foreach ($user in $targetUsers) {
             if ($isCloudSync) {
                 Write-Host "         [X] Cloud Sync Folder Wipe: Complete eradication ($sub)" -ForegroundColor Red
                 if (Test-Path $fullPath) {
-                    # TURBO MODE: Fast deletion (final free space wipe will sanitize)
-                    # Step 1: Wipe all files recursively (uses Force-Eradicate which respects TURBO_MODE)
-                    Write-Host "            [~] Step 1: Wiping cloud sync files..." -ForegroundColor DarkGray
-                    $cloudFiles = Get-ChildItem -Path $fullPath -File -Recurse -Force -ErrorAction SilentlyContinue
-                    $cloudFileCount = 0
-                    $cloudFileTotal = $cloudFiles.Count
-                    if ($cloudFileTotal -gt 0) {
-                        Write-Host "            [~] Found $cloudFileTotal files, processing..." -ForegroundColor DarkGray
-                        foreach ($cloudFile in $cloudFiles) {
-                            $cloudFileCount++
-                            if ($cloudFileCount % 200 -eq 0 -or $cloudFileCount -eq $cloudFileTotal) {
-                                Write-Host "               -> Wiping file $cloudFileCount of $cloudFileTotal..." -ForegroundColor DarkGray
-                            }
-                            Force-Eradicate $cloudFile.FullName "File"
-                        }
+                    # TURBO MODE: Fast streaming deletion (no counting/collecting)
+                    # Step 1: Wipe all files recursively - STREAMING
+                    Get-ChildItem -Path $fullPath -File -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        Force-Eradicate $_.FullName "File"
                     }
-                    # Step 2: Wipe all subdirectories recursively (sorted descending for proper deletion order)
-                    Write-Host "            [~] Step 2: Wiping cloud sync directories..." -ForegroundColor DarkGray
-                    $cloudDirs = Get-ChildItem -Path $fullPath -Directory -Recurse -Force -ErrorAction SilentlyContinue | Sort-Object -Property FullName -Descending
-                    $cloudDirCount = 0
-                    $cloudDirTotal = $cloudDirs.Count
-                    if ($cloudDirTotal -gt 0) {
-                        Write-Host "            [~] Found $cloudDirTotal directories, processing..." -ForegroundColor DarkGray
-                        foreach ($cloudDir in $cloudDirs) {
-                            $cloudDirCount++
-                            if ($cloudDirCount % 50 -eq 0 -or $cloudDirCount -eq $cloudDirTotal) {
-                                Write-Host "               -> Wiping directory $cloudDirCount of $cloudDirTotal..." -ForegroundColor DarkGray
-                            }
-                            Force-Eradicate $cloudDir.FullName "Folder"
-                        }
+                    # Step 2: Wipe all subdirectories recursively - STREAMING
+                    Get-ChildItem -Path $fullPath -Directory -Recurse -Force -ErrorAction SilentlyContinue | 
+                        Sort-Object -Property FullName -Descending | ForEach-Object {
+                        Force-Eradicate $_.FullName "Folder"
                     }
                     # Step 3: Force delete the root cloud sync folder structure
                     Force-Eradicate $fullPath "Folder"
@@ -907,184 +852,45 @@ foreach ($user in $targetUsers) {
         }
     }
     
-    # --- COMPREHENSIVE USER FOLDER WIPE (PRESERVE STRUCTURE) - OPTIMIZED SINGLE PASS ---
-    Write-Host "   [~] Comprehensive User Folder Content Wipe (Preserving Structure)..." -ForegroundColor DarkGray
-    Write-Host "   [~] Scanning user directory (single optimized pass)..." -ForegroundColor DarkGray
+    # --- FAST USER FOLDER WIPE (STREAMING PROCESSING) - SPEED OPTIMIZED ---
+    Write-Host "   [~] Fast User Folder Content Wipe (Preserving Structure)..." -ForegroundColor DarkGray
     
     # List of Windows standard folders to preserve (structure only, contents will be wiped)
-    # Note: Cloud sync folders (OneDrive, Google Drive, etc.) are NOT preserved - they are completely wiped
     $preserveFolders = @(
         "Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos", 
         "Favorites", "Links", "Saved Games", "Contacts", "Searches",
         "AppData"
     )
-    
-    # System files to preserve
     $systemFiles = @("ntuser.dat", "ntuser.dat.LOG1", "ntuser.dat.LOG2", "ntuser.ini", "desktop.ini")
     
-    # Standard AppData paths to preserve structure
-    $standardAppDataPaths = @(
-        "*\AppData\Local\Microsoft\Windows\INetCache",
-        "*\AppData\Local\Microsoft\Windows\History",
-        "*\AppData\Roaming\Microsoft\Windows\Start Menu",
-        "*\AppData\Roaming\Microsoft\Windows\SendTo"
-    )
+    # SPEED OPTIMIZATION: Process root files immediately (no full scan)
+    Write-Host "   [~] Wiping root user files..." -ForegroundColor DarkGray
+    Get-ChildItem -Path $user.FullName -File -Force -ErrorAction SilentlyContinue | 
+        Where-Object { $_.Name -notin $systemFiles } | 
+        ForEach-Object { Force-Eradicate $_.FullName "File" }
     
-    # OPTIMIZATION: Single recursive scan that categorizes all items at once
-    Write-Host "   [~] Performing single optimized scan of user directory..." -ForegroundColor DarkGray
-    $allItems = Get-ChildItem -Path $user.FullName -Recurse -Force -ErrorAction SilentlyContinue
-    
-    # Categorize items during single pass
-    $rootFiles = @()
-    $standardFolderContents = @()
-    $nonStandardFolders = @()
-    $remainingItems = @()
-    $hiddenItems = @()
-    $standardFoldersToPreserve = @{}
-    
-    $scanCount = 0
-    $scanTotal = $allItems.Count
-    Write-Host "   [~] Categorizing $scanTotal items..." -ForegroundColor DarkGray
-    
-    foreach ($item in $allItems) {
-        $scanCount++
-        if ($scanCount % 500 -eq 0 -or $scanCount -eq $scanTotal) {
-            Write-Host "      -> Categorizing item $scanCount of $scanTotal..." -ForegroundColor DarkGray
-        }
+    # SPEED OPTIMIZATION: Process root folders immediately (streaming, not full scan)
+    Write-Host "   [~] Processing user folders (streaming)..." -ForegroundColor DarkGray
+    Get-ChildItem -Path $user.FullName -Directory -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        $folder = $_
+        $folderName = $folder.Name
+        $folderPath = $folder.FullName
         
-        # Skip system files
-        if ($item.Name -in $systemFiles) { continue }
-        
-        # Skip root user directory itself
-        if ($item.FullName -eq $user.FullName) { continue }
-        
-        $itemPath = $item.FullName
-        $itemParent = Split-Path $itemPath -Parent
-        $itemName = $item.Name
-        $isHidden = ($item.Attributes -band [System.IO.FileAttributes]::Hidden) -or ($item.Attributes -band [System.IO.FileAttributes]::System)
-        
-        # Check if in standard AppData path
-        $isStandardAppData = $false
-        if ($itemPath -like "*\AppData\*") {
-            foreach ($stdPath in $standardAppDataPaths) {
-                if ($itemPath -like $stdPath) {
-                    $isStandardAppData = $true
-                    break
-                }
+        if ($preserveFolders -contains $folderName) {
+            # Standard folder - wipe contents but preserve structure
+            Write-Host "      -> Wiping contents of: $folderName" -ForegroundColor DarkGray
+            # TURBO: Process and delete immediately (streaming)
+            Get-ChildItem -Path $folderPath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                if ($_.PSIsContainer) { Force-Eradicate $_.FullName "Folder" } else { Force-Eradicate $_.FullName "File" }
             }
-        }
-        if ($isStandardAppData) { continue }
-        
-        # Root level files
-        if (-not $item.PSIsContainer -and $itemParent -eq $user.FullName) {
-            $rootFiles += $item
-            continue
-        }
-        
-        # Check if parent is a standard folder
-        $parentName = Split-Path $itemParent -Leaf
-        $isInStandardFolder = $preserveFolders -contains $parentName
-        
-        if ($isInStandardFolder) {
-            # Content of standard folder - wipe but preserve structure
-            $standardFolderContents += $item
-            # Track which standard folders we've seen
-            if (-not $standardFoldersToPreserve.ContainsKey($parentName)) {
-                $standardFoldersToPreserve[$parentName] = $itemParent
-            }
-        } elseif ($item.PSIsContainer) {
-            # Check if this folder itself is a standard folder at root level
-            if ($itemParent -eq $user.FullName -and $preserveFolders -contains $itemName) {
-                # This is a standard folder root - we'll preserve it, but track for content wiping
-                if (-not $standardFoldersToPreserve.ContainsKey($itemName)) {
-                    $standardFoldersToPreserve[$itemName] = $itemPath
-                }
-            } else {
-                # Non-standard folder - wipe completely
-                $nonStandardFolders += $item
+            # Ensure folder exists
+            if (-not (Test-Path $folderPath)) {
+                New-Item -ItemType Directory -Path $folderPath -Force -ErrorAction SilentlyContinue | Out-Null
             }
         } else {
-            # Remaining files/folders
-            if ($isHidden) {
-                $hiddenItems += $item
-            } else {
-                $remainingItems += $item
-            }
-        }
-    }
-    
-    Write-Host "   [~] Categorization complete. Processing items..." -ForegroundColor DarkGray
-    Write-Host "      -> Root files: $($rootFiles.Count)" -ForegroundColor DarkGray
-    Write-Host "      -> Standard folder contents: $($standardFolderContents.Count)" -ForegroundColor DarkGray
-    Write-Host "      -> Non-standard folders: $($nonStandardFolders.Count)" -ForegroundColor DarkGray
-    Write-Host "      -> Remaining items: $($remainingItems.Count)" -ForegroundColor DarkGray
-    Write-Host "      -> Hidden/system items: $($hiddenItems.Count)" -ForegroundColor DarkGray
-    
-    # Process root files
-    if ($rootFiles.Count -gt 0) {
-        Write-Host "   [~] Wiping root files..." -ForegroundColor DarkGray
-        foreach ($file in $rootFiles) {
-            Force-Eradicate $file.FullName "File"
-        }
-    }
-    
-    # Process non-standard folders (wipe completely)
-    if ($nonStandardFolders.Count -gt 0) {
-        Write-Host "   [~] Wiping non-standard folders..." -ForegroundColor DarkGray
-        $nsCount = 0
-        foreach ($folder in $nonStandardFolders) {
-            $nsCount++
-            if ($nsCount % 50 -eq 0 -or $nsCount -eq $nonStandardFolders.Count) {
-                Write-Host "      -> Wiping non-standard folder $nsCount of $($nonStandardFolders.Count): $($folder.Name)" -ForegroundColor DarkGray
-            }
-            Force-Eradicate $folder.FullName "Folder"
-        }
-    }
-    
-    # Process standard folder contents (wipe but preserve structure)
-    if ($standardFolderContents.Count -gt 0) {
-        Write-Host "   [~] Wiping standard folder contents (preserving structure)..." -ForegroundColor DarkGray
-        $sfcCount = 0
-        foreach ($item in $standardFolderContents) {
-            $sfcCount++
-            if ($sfcCount % 200 -eq 0 -or $sfcCount -eq $standardFolderContents.Count) {
-                Write-Host "      -> Wiping standard folder content $sfcCount of $($standardFolderContents.Count)..." -ForegroundColor DarkGray
-            }
-            if ($item.PSIsContainer) { Force-Eradicate $item.FullName "Folder" } else { Force-Eradicate $item.FullName "File" }
-        }
-    }
-    
-    # Ensure standard folders exist (recreate if needed)
-    foreach ($folderName in $standardFoldersToPreserve.Keys) {
-        $folderPath = $standardFoldersToPreserve[$folderName]
-        if (-not (Test-Path $folderPath)) {
-            New-Item -ItemType Directory -Path $folderPath -Force -ErrorAction SilentlyContinue | Out-Null
-        }
-    }
-    
-    # Process remaining items
-    if ($remainingItems.Count -gt 0) {
-        Write-Host "   [~] Wiping remaining items..." -ForegroundColor DarkGray
-        $remCount = 0
-        foreach ($item in $remainingItems) {
-            $remCount++
-            if ($remCount % 100 -eq 0 -or $remCount -eq $remainingItems.Count) {
-                Write-Host "      -> Wiping remaining item $remCount of $($remainingItems.Count)..." -ForegroundColor DarkGray
-            }
-            if ($item.PSIsContainer) { Force-Eradicate $item.FullName "Folder" } else { Force-Eradicate $item.FullName "File" }
-        }
-    }
-    
-    # Process hidden/system items
-    if ($hiddenItems.Count -gt 0) {
-        Write-Host "   [~] Wiping hidden/system items..." -ForegroundColor DarkGray
-        $hidCount = 0
-        foreach ($hiddenItem in $hiddenItems) {
-            $hidCount++
-            if ($hidCount % 50 -eq 0 -or $hidCount -eq $hiddenItems.Count) {
-                Write-Host "      -> Wiping hidden/system item $hidCount of $($hiddenItems.Count): $($hiddenItem.Name)" -ForegroundColor DarkGray
-            }
-            if ($hiddenItem.PSIsContainer) { Force-Eradicate $hiddenItem.FullName "Folder" } else { Force-Eradicate $hiddenItem.FullName "File" }
+            # Non-standard folder - wipe completely (TURBO MODE)
+            Write-Host "      -> Wiping non-standard folder: $folderName" -ForegroundColor DarkGray
+            Force-Eradicate $folderPath "Folder"
         }
     }
     
